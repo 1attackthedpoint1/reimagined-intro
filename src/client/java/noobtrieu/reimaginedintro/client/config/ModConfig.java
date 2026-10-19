@@ -15,7 +15,6 @@ public class ModConfig {
     public float introVolume = 1.0f;
     public boolean enableTitleScreenLoop = true;
     public boolean showSkipPrompt = true;
-    public boolean linkToMasterVolume = true;
 
     private static ModConfig INSTANCE;
     private static final Path CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("reimagined-intro.json");

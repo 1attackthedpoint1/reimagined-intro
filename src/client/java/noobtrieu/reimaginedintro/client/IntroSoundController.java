@@ -16,11 +16,9 @@ public class IntroSoundController {
             return;
         }
 
-        if (noobtrieu.reimaginedintro.client.config.ModConfig.get().linkToMasterVolume) {
-            float masterVol = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MASTER);
-            if (masterVol <= 0.0F) {
-                return;
-            }
+        float masterVol = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MASTER);
+        if (masterVol <= 0.0F) {
+            return;
         }
 
         float volume = noobtrieu.reimaginedintro.client.config.ModConfig.get().introVolume;
@@ -51,13 +49,6 @@ public class IntroSoundController {
 
     public static boolean isPlayingIntro() {
         return playingIntro;
-    }
-
-    public static boolean isIntroSound(SoundInstance sound) {
-        if (sound == null) {
-            return false;
-        }
-        return sound == currentSound || ReimaginedIntro.INTRO_SOUND_ID.equals(sound.getIdentifier());
     }
 
     public static void stop() {

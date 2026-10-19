@@ -5,8 +5,7 @@
 	"client": [
 		"TitleScreenMixin",
 		"ScreenMixin",
-		"PanoramaMixin",
-		"SoundEngineMixin"
+		"PanoramaMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

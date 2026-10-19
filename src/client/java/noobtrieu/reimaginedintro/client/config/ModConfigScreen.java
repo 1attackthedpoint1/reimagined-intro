@@ -22,7 +22,7 @@ public class ModConfigScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int startY = Math.max(38, this.height / 2 - 82);
+        int startY = Math.max(40, this.height / 2 - 70);
 
         // 1. Startup Intro Toggle
         this.addRenderableWidget(
@@ -66,27 +66,19 @@ public class ModConfigScreen extends Screen {
             }
         });
 
-        // 5. Link to Master Volume Toggle
-        this.addRenderableWidget(
-            CycleButton.onOffBuilder(ModConfig.get().linkToMasterVolume)
-                .create(centerX - 100, startY + 96, 200, 20, Component.literal("Link to Master Volume"), (btn, val) -> {
-                    ModConfig.get().linkToMasterVolume = val;
-                })
-        );
-
-        // 6. Test / Preview Intro button
+        // 5. Test / Preview Intro button
         this.addRenderableWidget(
             Button.builder(Component.literal("Preview Intro Sequence"), b -> {
                 ModConfig.save();
                 IntroManager.resetForReplay();
                 Minecraft.getInstance().gui.setScreen(new IntroScreen());
-            }).bounds(centerX - 100, startY + 122, 200, 20).build()
+            }).bounds(centerX - 100, startY + 98, 200, 20).build()
         );
 
-        // 7. Done Button
+        // 6. Done Button
         this.addRenderableWidget(
             Button.builder(CommonComponents.GUI_DONE, b -> this.onClose())
-                .bounds(centerX - 100, this.height - 30, 200, 20)
+                .bounds(centerX - 100, this.height - 32, 200, 20)
                 .build()
         );
     }
