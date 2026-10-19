@@ -42,16 +42,15 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
-    @WrapWithCondition(
-        method = "init",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/TitleScreen;addRenderableWidget(Lnet/minecraft/client/gui/components/events/GuiEventListener;)Lnet/minecraft/client/gui/components/events/GuiEventListener;")
-    )
-    private boolean shouldAddWidget(TitleScreen instance, net.minecraft.client.gui.components.events.GuiEventListener widget) {
-        if (widget instanceof net.minecraft.client.gui.components.PlainTextButton) {
-            // Suppress copyright button when custom loop is enabled
-            return !ModConfig.get().enableTitleScreenLoop;
+    @Inject(method = "init", at = @At("TAIL"))
+    private void removeCopyrightButton(CallbackInfo ci) {
+        if (ModConfig.get().enableTitleScreenLoop) {
+            for (net.minecraft.client.gui.components.events.GuiEventListener listener : new java.util.ArrayList<>(this.children())) {
+                if (listener instanceof net.minecraft.client.gui.components.PlainTextButton) {
+                    this.removeWidget(listener);
+                }
+            }
         }
-        return true;
     }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"))
