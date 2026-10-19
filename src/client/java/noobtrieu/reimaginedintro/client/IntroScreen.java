@@ -36,21 +36,23 @@ public class IntroScreen extends Screen {
         // Fill background with black
         guiGraphics.fill(0, 0, this.width, this.height, 0xFF000000);
 
-        // Scale 16:9 animation to fit screen
+        // Scale 16:9 animation to FILL (cover) the entire screen with zero black bars
         float screenAspect = (float) this.width / (float) this.height;
         float targetAspect = 16.0f / 9.0f;
         int renderWidth, renderHeight, x, y;
 
         if (screenAspect > targetAspect) {
-            renderHeight = this.height;
-            renderWidth = (int) (this.height * targetAspect);
-            x = (this.width - renderWidth) / 2;
-            y = 0;
-        } else {
+            // Screen is wider than 16:9 (e.g. 21:9 ultrawide) -> match width, crop top/bottom
             renderWidth = this.width;
             renderHeight = (int) (this.width / targetAspect);
             x = 0;
             y = (this.height - renderHeight) / 2;
+        } else {
+            // Screen is taller than 16:9 (e.g. 16:10, 4:3, windowed) -> match height, crop left/right
+            renderHeight = this.height;
+            renderWidth = (int) (this.height * targetAspect);
+            x = (this.width - renderWidth) / 2;
+            y = 0;
         }
 
         // Correct Minecraft 26.3 blit parameters: (id, x0, y0, x1, y1, u0, u1, v0, v1)

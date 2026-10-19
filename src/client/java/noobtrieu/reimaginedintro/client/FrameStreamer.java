@@ -111,8 +111,8 @@ public class FrameStreamer {
         }
 
         if (stream != null) {
-            try (stream) {
-                return NativeImageDecoder.decode(stream);
+            try (InputStream is = stream) {
+                return NativeImageDecoder.decode(is);
             } catch (Throwable e) {
                 ReimaginedIntro.LOGGER.error("Failed to decode frame: " + base + " #" + frameIndex, e);
             }
