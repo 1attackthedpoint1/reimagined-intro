@@ -101,7 +101,7 @@ public class FrameStreamer {
     }
 
     private static NativeImage loadFrame(boolean isLoop, int frameIndex) {
-        String path = String.format("/assets/reimagined-intro/textures/%s/frame_%04d.jpg",
+        String path = String.format("/assets/reimagined-intro/textures/%s/frame_%04d.png",
                 isLoop ? "loop" : "intro", frameIndex);
         try (InputStream stream = ReimaginedIntro.class.getResourceAsStream(path)) {
             if (stream != null) {
