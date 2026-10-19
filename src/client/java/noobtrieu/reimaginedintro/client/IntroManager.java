@@ -44,9 +44,11 @@ public class IntroManager {
         if (!skipped) {
             ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Intro skipped by user.");
             skipped = true;
+            IntroSoundController.stop();
             // Jump timeline to start of loop
             startTimeMs = System.currentTimeMillis() - FrameStreamer.INTRO_TOTAL_DURATION_MS;
             hasPlayed = true;
+            FrameStreamer.loadLastIntroFrame();
 
             // Transition directly to TitleScreen with smooth UI fade-in
             Minecraft.getInstance().gui.setScreen(new TitleScreen(true));
@@ -62,6 +64,7 @@ public class IntroManager {
 
     public static void resetForReplay() {
         ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Replaying intro.");
+        IntroSoundController.stop();
         startTimeMs = -1;
         skipped = false;
         hasPlayed = false;
