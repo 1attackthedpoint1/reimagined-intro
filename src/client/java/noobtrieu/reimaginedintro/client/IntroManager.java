@@ -48,15 +48,15 @@ public class IntroManager {
             startTimeMs = System.currentTimeMillis() - FrameStreamer.INTRO_TOTAL_DURATION_MS;
             hasPlayed = true;
 
-            // Transition directly to TitleScreen
-            Minecraft.getInstance().gui.setScreen(new TitleScreen());
+            // Transition directly to TitleScreen with smooth UI fade-in
+            Minecraft.getInstance().gui.setScreen(new TitleScreen(true));
         }
     }
 
     public static void onIntroFinished() {
         ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Intro finished naturally. Transitioning to TitleScreen.");
         hasPlayed = true;
-        Minecraft.getInstance().gui.setScreen(new TitleScreen());
+        Minecraft.getInstance().gui.setScreen(new TitleScreen(true));
     }
 
     public static void resetForReplay() {

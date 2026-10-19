@@ -5,16 +5,21 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
 import noobtrieu.reimaginedintro.client.FrameStreamer;
 import noobtrieu.reimaginedintro.client.IntroManager;
 import noobtrieu.reimaginedintro.client.IntroScreen;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen {
+    @Shadow private boolean fading;
+    @Shadow private long fadeInStart;
+
     protected TitleScreenMixin(Component title) {
         super(title);
     }
@@ -25,6 +30,16 @@ public abstract class TitleScreenMixin extends Screen {
             IntroManager.setHasPlayed(true);
             Minecraft.getInstance().gui.setScreen(new IntroScreen());
             ci.cancel();
+        }
+    }
+
+    @Inject(method = "extractRenderState", at = @At("HEAD"))
+    private void eliminateFadeInDelay(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+        if (this.fading && this.fadeInStart == 0L) {
+            // Vanilla TitleScreen hardcodes a 1000ms dead zone where alpha is clamped to 0.0.
+            // By pre-advancing fadeInStart by 1000ms, alpha immediately begins rising from 0.0 on frame 1,
+            // producing a smooth 1-second fade-in with zero dead delay!
+            this.fadeInStart = Util.getMillis() - 1000L;
         }
     }
 
