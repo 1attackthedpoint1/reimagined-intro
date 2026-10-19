@@ -101,14 +101,21 @@ public class FrameStreamer {
     }
 
     private static NativeImage loadFrame(boolean isLoop, int frameIndex) {
-        String path = String.format("/assets/reimagined-intro/textures/%s/frame_%04d.png",
-                isLoop ? "loop" : "intro", frameIndex);
-        try (InputStream stream = ReimaginedIntro.class.getResourceAsStream(path)) {
-            if (stream != null) {
-                return NativeImage.read(stream);
+        String base = isLoop ? "loop" : "intro";
+        String jpgPath = String.format("/assets/reimagined-intro/textures/%s/frame_%04d.jpg", base, frameIndex);
+        String pngPath = String.format("/assets/reimagined-intro/textures/%s/frame_%04d.png", base, frameIndex);
+
+        InputStream stream = ReimaginedIntro.class.getResourceAsStream(jpgPath);
+        if (stream == null) {
+            stream = ReimaginedIntro.class.getResourceAsStream(pngPath);
+        }
+
+        if (stream != null) {
+            try (stream) {
+                return NativeImageDecoder.decode(stream);
+            } catch (Throwable e) {
+                ReimaginedIntro.LOGGER.error("Failed to decode frame: " + base + " #" + frameIndex, e);
             }
-        } catch (Throwable e) {
-            ReimaginedIntro.LOGGER.error("Failed to load frame: " + path, e);
         }
         return null;
     }
