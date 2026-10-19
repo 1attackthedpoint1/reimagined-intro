@@ -28,13 +28,17 @@ public class LegacyMigrationHandler {
 
         Path modsDir = gameDir.resolve("mods");
         boolean hasFancyMenuMod = FabricLoader.getInstance().isModLoaded("fancymenu");
-        boolean hasLegacyJar = hasLegacyModJar(modsDir);
+        boolean hasFancyMenuJar = hasModJar(modsDir, "fancymenu");
         boolean hasLegacyFile = Files.exists(legacyVersionFile);
 
-        // Trigger if the legacy Reimagined Intro version file exists and/or FancyMenu is present
-        if (!hasLegacyFile && !(hasFancyMenuMod || hasLegacyJar)) {
+        // Open migration assistant if legacy marker is present and FancyMenu is installed (regardless of Drippy presence)
+        if (!hasLegacyFile || !(hasFancyMenuMod || hasFancyMenuJar)) {
             return;
         }
+
+        boolean hasDrippyMod = FabricLoader.getInstance().isModLoaded("drippyloadingscreen");
+        boolean hasDrippyJar = hasModJar(modsDir, "drippyloadingscreen");
+        boolean hasDrippy = hasDrippyMod || hasDrippyJar;
 
         ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Legacy Reimagined Intro v2 setup detected! Prompting migration assistant...");
 
@@ -55,28 +59,32 @@ public class LegacyMigrationHandler {
             JPanel panel = new JPanel(new BorderLayout(0, 14));
             panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+            String detectedDesc = hasDrippy
+                ? "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> using <i>FancyMenu</i> & <i>Drippy Loading Screen</i> was detected in this instance.</p>"
+                  + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is a standalone native mod. Because Drippy Loading Screen depends directly on FancyMenu, removing FancyMenu will also disable Drippy Loading Screen to prevent game crashes.</p>"
+                : "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> using <i>FancyMenu</i> was detected in this instance.</p>"
+                  + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is now a standalone native mod and no longer requires FancyMenu. Leaving old v2 layouts active may cause visual glitches or duplicate title screen elements.</p>";
+
             JLabel messageLabel = new JLabel("<html><body style='width: 380px; font-family: sans-serif;'>"
                 + "<h2 style='margin: 0 0 8px 0; color: #1E3A8A;'>Previous Version Detected (v2)</h2>"
-                + "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> using <i>FancyMenu</i> & <i>Drippy Loading Screen</i> was detected in this instance.</p>"
-                + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is now a standalone native mod and no longer requires external menu mods. Leaving old v2 layouts active may cause visual glitches or duplicate loading screens.</p>"
-                + "<p style='margin: 0 0 6px 0;'><i>Note: A safety backup of your existing configs will always be created before making any changes.</i></p>"
+                + detectedDesc
                 + "<p style='margin: 0 0 4px 0;'><b>How would you like to proceed?</b></p>"
                 + "</body></html>");
             panel.add(messageLabel, BorderLayout.CENTER);
 
-            JCheckBox doNotShowAgain = new JCheckBox("Do not show this warning again", true);
+            JCheckBox doNotShowAgain = new JCheckBox("Do not show this warning again", false);
             panel.add(doNotShowAgain, BorderLayout.SOUTH);
 
             String[] options = new String[]{
-                "Clean Upgrade (Recommended)",
-                "Backup Legacy Config",
-                "Keep & Continue"
+                "Disable FancyMenu (Recommended)",
+                "Disable Config Only",
+                "Keep Everything (May Break)"
             };
 
             int choice = JOptionPane.showOptionDialog(
                 null,
                 panel,
-                "Reimagined Intro — Migration Assistant",
+                "Reimagined Intro",
                 JOptionPane.DEFAULT_OPTION,
                 JOptionPane.QUESTION_MESSAGE,
                 null,
@@ -85,17 +93,17 @@ public class LegacyMigrationHandler {
             );
 
             if (choice == 0) {
-                // Clean Upgrade: Backup first, remove legacy version file, and disable FancyMenu/Drippy jars
-                performCleanUpgrade(gameDir, configDir, legacyVersionFile);
+                // Remove FancyMenu (Recommended): Disable mods directly without backing up configs, keep marker
+                performRemoveFancyMenu(gameDir);
                 ModConfig.get().ignoreLegacyWarning = true;
                 ModConfig.save();
             } else if (choice == 1) {
-                // Backup Legacy Config: Backup configs, remove version file, but keep jars intact
-                performBackupOnly(configDir, legacyVersionFile);
+                // Disable Configs Only: Move FancyMenu configs to fancymenu_backup_[timestamp], keep marker, keep jars
+                performDisableConfigsOnly(configDir, legacyVersionFile);
                 ModConfig.get().ignoreLegacyWarning = true;
                 ModConfig.save();
             } else {
-                // Keep & Continue or closed window
+                // Keep Everything (May Break) or closed window
                 if (doNotShowAgain.isSelected()) {
                     ModConfig.get().ignoreLegacyWarning = true;
                     ModConfig.save();
@@ -110,14 +118,14 @@ public class LegacyMigrationHandler {
         }
     }
 
-    private static boolean hasLegacyModJar(Path modsDir) {
+    private static boolean hasModJar(Path modsDir, String keyword) {
         if (!Files.isDirectory(modsDir)) {
             return false;
         }
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(modsDir, "*.jar")) {
             for (Path jar : stream) {
                 String name = jar.getFileName().toString().toLowerCase(Locale.ROOT);
-                if (name.contains("fancymenu") || name.contains("drippyloadingscreen")) {
+                if (name.contains(keyword.toLowerCase(Locale.ROOT))) {
                     return true;
                 }
             }
@@ -126,49 +134,48 @@ public class LegacyMigrationHandler {
         return false;
     }
 
-    private static Path backupConfigs(Path configDir) {
+    private static Path backupAndDisableFancyMenuConfig(Path configDir, Path legacyVersionFile) {
         try {
             String timestamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").format(LocalDateTime.now());
             Path backupDir = configDir.resolve("fancymenu_backup_" + timestamp);
-            Files.createDirectories(backupDir);
-
             Path fancyMenuDir = configDir.resolve("fancymenu");
-            if (Files.isDirectory(fancyMenuDir)) {
-                copyDirectory(fancyMenuDir, backupDir.resolve("fancymenu"));
+
+            if (!Files.isDirectory(fancyMenuDir)) {
+                return null;
             }
 
-            Path drippyDir = configDir.resolve("drippyloadingscreen");
-            if (Files.isDirectory(drippyDir)) {
-                copyDirectory(drippyDir, backupDir.resolve("drippyloadingscreen"));
+            Files.createDirectories(backupDir);
+            copyDirectory(fancyMenuDir, backupDir);
+
+            // Clear old layout/customization files from config/fancymenu but preserve the marker file
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(fancyMenuDir)) {
+                for (Path entry : stream) {
+                    if (entry.getFileName().toString().equalsIgnoreCase("reimagined_intro_version.txt")) {
+                        continue; // Keep marker intact
+                    }
+                    if (Files.isDirectory(entry)) {
+                        deleteDirectory(entry);
+                    } else {
+                        Files.deleteIfExists(entry);
+                    }
+                }
             }
 
-            ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Backed up legacy configs to: {}", backupDir);
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Disabled FancyMenu configs and backed up to: {}", backupDir);
             return backupDir;
         } catch (Exception e) {
-            ReimaginedIntro.LOGGER.error("[ReimaginedIntro] Failed to backup legacy configs", e);
+            ReimaginedIntro.LOGGER.error("[ReimaginedIntro] Failed to backup and disable FancyMenu configs", e);
             return null;
         }
     }
 
-    private static void performCleanUpgrade(Path gameDir, Path configDir, Path legacyVersionFile) {
-        Path backupDir = backupConfigs(configDir);
-
-        try {
-            Files.deleteIfExists(legacyVersionFile);
-        } catch (Exception e) {
-            ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not delete legacy marker file", e);
-        }
-
+    private static void performRemoveFancyMenu(Path gameDir) {
         Path modsDir = gameDir.resolve("mods");
         List<String> disabledJars = disableLegacyJars(modsDir);
 
-        StringBuilder sb = new StringBuilder("Clean Upgrade Complete!\n\n");
-        if (backupDir != null) {
-            sb.append("• Safety backup created in:\n  config/").append(backupDir.getFileName()).append("\n\n");
-        }
-        sb.append("• Legacy Reimagined Intro v2 marker removed.\n");
+        StringBuilder sb = new StringBuilder("Legacy Mods Disabled!\n\n");
         if (!disabledJars.isEmpty()) {
-            sb.append("• Disabled legacy mod JAR(s):\n");
+            sb.append("• Disabled mod JAR(s):\n");
             for (String jar : disabledJars) {
                 sb.append("   - ").append(jar).append(" -> .disabled\n");
             }
@@ -180,31 +187,25 @@ public class LegacyMigrationHandler {
         JOptionPane.showMessageDialog(
             null,
             sb.toString(),
-            "Reimagined Intro — Migration Assistant",
+            "Reimagined Intro",
             JOptionPane.INFORMATION_MESSAGE
         );
     }
 
-    private static void performBackupOnly(Path configDir, Path legacyVersionFile) {
-        Path backupDir = backupConfigs(configDir);
+    private static void performDisableConfigsOnly(Path configDir, Path legacyVersionFile) {
+        Path backupDir = backupAndDisableFancyMenuConfig(configDir, legacyVersionFile);
 
-        try {
-            Files.deleteIfExists(legacyVersionFile);
-        } catch (Exception e) {
-            ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not delete legacy marker file", e);
-        }
-
-        StringBuilder sb = new StringBuilder("Backup Complete!\n\n");
+        StringBuilder sb = new StringBuilder("FancyMenu Configs Disabled!\n\n");
         if (backupDir != null) {
-            sb.append("• Legacy configs safely backed up in:\n  config/").append(backupDir.getFileName()).append("\n\n");
+            sb.append("• Old FancyMenu configs backed up to:\n  config/").append(backupDir.getFileName()).append("\n\n");
         }
-        sb.append("• Legacy Reimagined Intro v2 marker removed.\n");
-        sb.append("• FancyMenu & Drippy Loading Screen JARs left intact.");
+        sb.append("• FancyMenu mod JAR(s) left intact.\n");
+        sb.append("\nYou're all set to enjoy Reimagined Intro v3!");
 
         JOptionPane.showMessageDialog(
             null,
             sb.toString(),
-            "Reimagined Intro — Migration Assistant",
+            "Reimagined Intro",
             JOptionPane.INFORMATION_MESSAGE
         );
     }
@@ -218,6 +219,7 @@ public class LegacyMigrationHandler {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(modsDir, "*.jar")) {
             for (Path jar : stream) {
                 String name = jar.getFileName().toString().toLowerCase(Locale.ROOT);
+                // Disable FancyMenu and, if present, dependent Drippy Loading Screen
                 if (name.contains("fancymenu") || name.contains("drippyloadingscreen")) {
                     Path target = jar.resolveSibling(jar.getFileName().toString() + ".disabled");
                     try {
@@ -248,6 +250,19 @@ public class LegacyMigrationHandler {
                     throw new UncheckedIOException(e);
                 }
             });
+        }
+    }
+
+    private static void deleteDirectory(Path path) throws IOException {
+        try (var stream = Files.walk(path)) {
+            stream.sorted((a, b) -> b.compareTo(a))
+                  .forEach(p -> {
+                      try {
+                          Files.deleteIfExists(p);
+                      } catch (IOException e) {
+                          throw new UncheckedIOException(e);
+                      }
+                  });
         }
     }
 }
