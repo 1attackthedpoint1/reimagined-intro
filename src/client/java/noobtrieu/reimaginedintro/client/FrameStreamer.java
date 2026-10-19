@@ -34,8 +34,8 @@ public class FrameStreamer {
     public static synchronized void init() {
         if (initialized) return;
 
-        // Initialize with 1920x1080 dynamic texture
-        dynamicTexture = new DynamicTexture("reimagined_frame", 1920, 1080, false);
+        // Initialize with 1920x1080 smooth dynamic texture (bilinear filtering)
+        dynamicTexture = new SmoothDynamicTexture("reimagined_frame", 1920, 1080, false);
         Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, dynamicTexture);
         initialized = true;
         lastUploadedFrame = -1;
