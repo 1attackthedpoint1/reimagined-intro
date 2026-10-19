@@ -9,6 +9,7 @@ import net.minecraft.client.gui.components.SplashRenderer;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 import noobtrieu.reimaginedintro.client.FrameStreamer;
@@ -74,14 +75,50 @@ public abstract class TitleScreenMixin extends Screen {
         method = "extractRenderState",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/TitleScreen;extractPanorama(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V", shift = At.Shift.AFTER)
     )
-    private void fadePanoramaFromBlack(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    private void fadePanoramaFromIntroFrame(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!ModConfig.get().enableTitleScreenLoop && this.fading) {
             float f1 = (float) (Util.getMillis() - this.fadeInStart) / 2000.0F;
             float f = Math.clamp(Mth.clampedMap(f1, 0.5F, 1.0F, 0.0F, 1.0F), 0.0F, 1.0F);
-            float blackAlpha = 1.0F - f;
-            int alpha = (int) (blackAlpha * 255.0F);
+            float frameAlpha = 1.0F - f;
+            int alpha = (int) (frameAlpha * 255.0F);
             if (alpha > 0) {
+                // Calculate aspect ratio scaling to cover screen
+                float screenAspect = (float) this.width / (float) this.height;
+                float targetAspect = 16.0f / 9.0f;
+                int renderWidth, renderHeight, x, y;
+
+                if (screenAspect > targetAspect) {
+                    renderWidth = this.width;
+                    renderHeight = (int) (this.width / targetAspect);
+                    x = 0;
+                    y = (this.height - renderHeight) / 2;
+                } else {
+                    renderHeight = this.height;
+                    renderWidth = (int) (this.height * targetAspect);
+                    x = (this.width - renderWidth) / 2;
+                    y = 0;
+                }
+
+                // Fill any letterbox / margins in black with matching fade
                 guiGraphics.fill(0, 0, this.width, this.height, (alpha << 24));
+
+                // Blit last intro frame dissolving smoothly into the panorama and menu
+                int tintColor = (alpha << 24) | 0x00FFFFFF;
+                guiGraphics.blit(
+                    RenderPipelines.GUI_TEXTURED,
+                    FrameStreamer.getTextureId(),
+                    x,
+                    y,
+                    0.0f,
+                    0.0f,
+                    renderWidth,
+                    renderHeight,
+                    1,
+                    1,
+                    1,
+                    1,
+                    tintColor
+                );
             }
         }
     }

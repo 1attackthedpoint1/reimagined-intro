@@ -44,6 +44,11 @@ public class FrameStreamer {
         prefetchUpcoming(true, 1, 5);
     }
 
+    public static void loadLastIntroFrame() {
+        if (!initialized) init();
+        uploadFrame(false, INTRO_FRAME_COUNT);
+    }
+
     public static void update(long elapsedMs) {
         if (!initialized) init();
 

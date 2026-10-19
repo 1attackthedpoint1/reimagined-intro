@@ -56,6 +56,7 @@ public class IntroManager {
     public static void onIntroFinished() {
         ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Intro finished naturally. Transitioning to TitleScreen.");
         hasPlayed = true;
+        FrameStreamer.loadLastIntroFrame();
         Minecraft.getInstance().gui.setScreen(new TitleScreen(true));
     }
 
