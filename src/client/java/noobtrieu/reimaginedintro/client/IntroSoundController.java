@@ -15,10 +15,15 @@ public class IntroSoundController {
             return;
         }
 
+        float volume = noobtrieu.reimaginedintro.client.config.ModConfig.get().introVolume;
+        if (volume <= 0.0F) {
+            return;
+        }
+
         currentSound = new SimpleSoundInstance(
             ReimaginedIntro.INTRO_SOUND_ID,
             SoundSource.MASTER,
-            1.0F,
+            volume,
             1.0F,
             RandomSource.create(),
             false,

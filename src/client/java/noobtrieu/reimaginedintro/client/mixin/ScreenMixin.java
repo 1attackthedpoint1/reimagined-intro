@@ -16,10 +16,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class ScreenMixin {
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void onKeyPressed(KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
-        if ((Object) this instanceof TitleScreen && event.key() == InputConstants.KEY_F6) {
-            IntroManager.resetForReplay();
-            Minecraft.getInstance().gui.setScreen(new IntroScreen());
-            cir.setReturnValue(true);
+        if ((Object) this instanceof TitleScreen) {
+            if (event.key() == InputConstants.KEY_F6) {
+                IntroManager.resetForReplay();
+                Minecraft.getInstance().gui.setScreen(new IntroScreen());
+                cir.setReturnValue(true);
+            } else if (event.key() == InputConstants.KEY_F7) {
+                Minecraft.getInstance().gui.setScreen(new noobtrieu.reimaginedintro.client.config.ModConfigScreen((Screen) (Object) this));
+                cir.setReturnValue(true);
+            }
         }
     }
 }
