@@ -4,7 +4,8 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"TitleScreenMixin",
-		"ScreenMixin"
+		"ScreenMixin",
+		"PanoramaMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
