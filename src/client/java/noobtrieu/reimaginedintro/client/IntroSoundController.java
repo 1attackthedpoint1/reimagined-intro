@@ -1,0 +1,44 @@
+package noobtrieu.reimaginedintro.client;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
+import noobtrieu.reimaginedintro.ReimaginedIntro;
+
+public class IntroSoundController {
+    private static SimpleSoundInstance currentSound = null;
+
+    public static void play() {
+        if (currentSound != null && Minecraft.getInstance().getSoundManager().isActive(currentSound)) {
+            return;
+        }
+
+        currentSound = new SimpleSoundInstance(
+            ReimaginedIntro.INTRO_SOUND_ID,
+            SoundSource.MASTER,
+            1.0F,
+            1.0F,
+            RandomSource.create(),
+            false,
+            0,
+            SoundInstance.Attenuation.NONE,
+            0.0, 0.0, 0.0,
+            true
+        );
+
+        Minecraft.getInstance().getSoundManager().play(currentSound);
+    }
+
+    public static boolean isPlaying() {
+        return currentSound != null && Minecraft.getInstance().getSoundManager().isActive(currentSound);
+    }
+
+    public static void stop() {
+        if (currentSound != null) {
+            Minecraft.getInstance().getSoundManager().stop(currentSound);
+            currentSound = null;
+        }
+    }
+}

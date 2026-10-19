@@ -3,7 +3,9 @@
 	"package": "noobtrieu.reimaginedintro.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"ExampleClientMixin"
+		"GuiMixin",
+		"TitleScreenMixin",
+		"ScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

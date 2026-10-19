@@ -1,27 +1,24 @@
 package noobtrieu.reimaginedintro;
 
 import net.fabricmc.api.ModInitializer;
-
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-
+import net.minecraft.sounds.SoundEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ReimaginedIntro implements ModInitializer {
 	public static final String MOD_ID = "reimagined-intro";
-
-	// This logger is used to write text to the console and the log file.
-	// It is considered best practice to use your mod id as the logger's name.
-	// That way, it's clear which mod wrote info, warnings, and errors.
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+
+	public static final Identifier INTRO_SOUND_ID = id("intro");
+	public static final SoundEvent INTRO_SOUND_EVENT = SoundEvent.createVariableRangeEvent(INTRO_SOUND_ID);
 
 	@Override
 	public void onInitialize() {
-		// This code runs as soon as Minecraft is in a mod-load-ready state.
-		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
-
-		LOGGER.info("Hello Fabric world!");
+		Registry.register(BuiltInRegistries.SOUND_EVENT, INTRO_SOUND_ID, INTRO_SOUND_EVENT);
+		LOGGER.info("[ReimaginedIntro] Initialized mod sound events.");
 	}
 
 	public static Identifier id(String path) {

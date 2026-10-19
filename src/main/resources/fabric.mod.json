@@ -3,13 +3,12 @@
 	"id": "reimagined-intro",
 	"version": "${version}",
 	"name": "Reimagined Intro",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Cinematic Mojang startup animation and looping animated Title Screen background.",
 	"authors": [
-		"Me!"
+		"NoobTrieu"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://modrinth.com/mod/reimagined-intro"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/reimagined-intro/icon.png",

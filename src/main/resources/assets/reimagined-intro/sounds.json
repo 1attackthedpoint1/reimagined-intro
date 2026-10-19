@@ -1,0 +1,11 @@
+{
+  "intro": {
+    "category": "music",
+    "sounds": [
+      {
+        "name": "reimagined-intro:intro",
+        "stream": true
+      }
+    ]
+  }
+}
