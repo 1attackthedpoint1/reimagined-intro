@@ -18,10 +18,6 @@ import java.util.Locale;
 public class LegacyMigrationHandler {
 
     public static void checkAndPrompt() {
-        if (GraphicsEnvironment.isHeadless()) {
-            return;
-        }
-
         if (ModConfig.get().ignoreLegacyWarning) {
             return;
         }
@@ -30,67 +26,104 @@ public class LegacyMigrationHandler {
         Path gameDir = FabricLoader.getInstance().getGameDir();
         Path legacyVersionFile = configDir.resolve("fancymenu").resolve("reimagined_intro_version.txt");
 
-        boolean hasFancyMenu = FabricLoader.getInstance().isModLoaded("fancymenu");
+        Path modsDir = gameDir.resolve("mods");
+        boolean hasFancyMenuMod = FabricLoader.getInstance().isModLoaded("fancymenu");
+        boolean hasLegacyJar = hasLegacyModJar(modsDir);
         boolean hasLegacyFile = Files.exists(legacyVersionFile);
 
-        if (!hasFancyMenu || !hasLegacyFile) {
+        // Trigger if the legacy Reimagined Intro version file exists and/or FancyMenu is present
+        if (!hasLegacyFile && !(hasFancyMenuMod || hasLegacyJar)) {
             return;
         }
 
+        ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Legacy Reimagined Intro v2 setup detected! Prompting migration assistant...");
+
+        String prevHeadless = System.getProperty("java.awt.headless");
+        System.setProperty("java.awt.headless", "false");
+
         try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {
-        }
+            if (GraphicsEnvironment.isHeadless()) {
+                ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Environment remains headless, skipping migration dialog.");
+                return;
+            }
 
-        JPanel panel = new JPanel(new BorderLayout(0, 14));
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ignored) {
+            }
 
-        JLabel messageLabel = new JLabel("<html><body style='width: 380px; font-family: sans-serif;'>"
-            + "<h2 style='margin: 0 0 8px 0; color: #1E3A8A;'>Previous Version Detected (v2)</h2>"
-            + "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> using <i>FancyMenu</i> & <i>Drippy Loading Screen</i> was detected in this instance.</p>"
-            + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is now a standalone native mod and no longer requires external menu mods. Leaving old v2 layouts active may cause visual glitches or duplicate loading screens.</p>"
-            + "<p style='margin: 0 0 6px 0;'><i>Note: A safety backup of your existing configs will always be created before making any changes.</i></p>"
-            + "<p style='margin: 0 0 4px 0;'><b>How would you like to proceed?</b></p>"
-            + "</body></html>");
-        panel.add(messageLabel, BorderLayout.CENTER);
+            JPanel panel = new JPanel(new BorderLayout(0, 14));
+            panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JCheckBox doNotShowAgain = new JCheckBox("Do not show this warning again", true);
-        panel.add(doNotShowAgain, BorderLayout.SOUTH);
+            JLabel messageLabel = new JLabel("<html><body style='width: 380px; font-family: sans-serif;'>"
+                + "<h2 style='margin: 0 0 8px 0; color: #1E3A8A;'>Previous Version Detected (v2)</h2>"
+                + "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> using <i>FancyMenu</i> & <i>Drippy Loading Screen</i> was detected in this instance.</p>"
+                + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is now a standalone native mod and no longer requires external menu mods. Leaving old v2 layouts active may cause visual glitches or duplicate loading screens.</p>"
+                + "<p style='margin: 0 0 6px 0;'><i>Note: A safety backup of your existing configs will always be created before making any changes.</i></p>"
+                + "<p style='margin: 0 0 4px 0;'><b>How would you like to proceed?</b></p>"
+                + "</body></html>");
+            panel.add(messageLabel, BorderLayout.CENTER);
 
-        String[] options = new String[]{
-            "Clean Upgrade (Recommended)",
-            "Backup Legacy Config",
-            "Keep & Continue"
-        };
+            JCheckBox doNotShowAgain = new JCheckBox("Do not show this warning again", true);
+            panel.add(doNotShowAgain, BorderLayout.SOUTH);
 
-        int choice = JOptionPane.showOptionDialog(
-            null,
-            panel,
-            "Reimagined Intro — Migration Assistant",
-            JOptionPane.DEFAULT_OPTION,
-            JOptionPane.QUESTION_MESSAGE,
-            null,
-            options,
-            options[0]
-        );
+            String[] options = new String[]{
+                "Clean Upgrade (Recommended)",
+                "Backup Legacy Config",
+                "Keep & Continue"
+            };
 
-        if (choice == 0) {
-            // Clean Upgrade: Backup first, remove legacy version file, and disable FancyMenu/Drippy jars
-            performCleanUpgrade(gameDir, configDir, legacyVersionFile);
-            ModConfig.get().ignoreLegacyWarning = true;
-            ModConfig.save();
-        } else if (choice == 1) {
-            // Backup Legacy Config: Backup configs, remove version file, but keep jars intact
-            performBackupOnly(configDir, legacyVersionFile);
-            ModConfig.get().ignoreLegacyWarning = true;
-            ModConfig.save();
-        } else {
-            // Keep & Continue or closed window
-            if (doNotShowAgain.isSelected()) {
+            int choice = JOptionPane.showOptionDialog(
+                null,
+                panel,
+                "Reimagined Intro — Migration Assistant",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+            );
+
+            if (choice == 0) {
+                // Clean Upgrade: Backup first, remove legacy version file, and disable FancyMenu/Drippy jars
+                performCleanUpgrade(gameDir, configDir, legacyVersionFile);
                 ModConfig.get().ignoreLegacyWarning = true;
                 ModConfig.save();
+            } else if (choice == 1) {
+                // Backup Legacy Config: Backup configs, remove version file, but keep jars intact
+                performBackupOnly(configDir, legacyVersionFile);
+                ModConfig.get().ignoreLegacyWarning = true;
+                ModConfig.save();
+            } else {
+                // Keep & Continue or closed window
+                if (doNotShowAgain.isSelected()) {
+                    ModConfig.get().ignoreLegacyWarning = true;
+                    ModConfig.save();
+                }
+            }
+        } catch (Exception e) {
+            ReimaginedIntro.LOGGER.error("[ReimaginedIntro] Error showing migration assistant dialog", e);
+        } finally {
+            if (prevHeadless != null) {
+                System.setProperty("java.awt.headless", prevHeadless);
             }
         }
+    }
+
+    private static boolean hasLegacyModJar(Path modsDir) {
+        if (!Files.isDirectory(modsDir)) {
+            return false;
+        }
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(modsDir, "*.jar")) {
+            for (Path jar : stream) {
+                String name = jar.getFileName().toString().toLowerCase(Locale.ROOT);
+                if (name.contains("fancymenu") || name.contains("drippyloadingscreen")) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
     private static Path backupConfigs(Path configDir) {
