@@ -5,8 +5,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import noobtrieu.reimaginedintro.client.config.ModConfig;
 
 public class IntroScreen extends Screen {
     public IntroScreen() {
@@ -78,8 +78,8 @@ public class IntroScreen extends Screen {
         }
 
         // Subtle skip prompt in bottom-right corner after 1.5s
-        if (elapsed > 1500) {
-            Component skipPrompt = Component.literal("SPACE to skip");
+        if (ModConfig.get().showSkipPrompt && elapsed > 1500) {
+            Component skipPrompt = Component.literal("ESC to skip");
             int textWidth = this.font.width(skipPrompt);
             guiGraphics.text(this.font, skipPrompt, this.width - textWidth - 16, this.height - 20, 0x66FFFFFF);
         }
@@ -87,17 +87,11 @@ public class IntroScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
-        if (event.key() == InputConstants.KEY_SPACE || event.key() == InputConstants.KEY_ESCAPE || event.key() == InputConstants.KEY_RETURN) {
+        if (event.key() == InputConstants.KEY_ESCAPE) {
             IntroManager.skip();
             return true;
         }
         return super.keyPressed(event);
-    }
-
-    @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean wasHandled) {
-        IntroManager.skip();
-        return true;
     }
 
     @Override

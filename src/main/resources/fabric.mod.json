@@ -19,6 +19,9 @@
 		],
 		"client": [
 			"noobtrieu.reimaginedintro.client.ReimaginedIntroClient"
+		],
+		"modmenu": [
+			"noobtrieu.reimaginedintro.client.compat.ModMenuIntegration"
 		]
 	},
 	"mixins": [

@@ -4,7 +4,6 @@ import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.SplashRenderer;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,7 +15,6 @@ import noobtrieu.reimaginedintro.client.FrameStreamer;
 import noobtrieu.reimaginedintro.client.IntroManager;
 import noobtrieu.reimaginedintro.client.IntroScreen;
 import noobtrieu.reimaginedintro.client.config.ModConfig;
-import noobtrieu.reimaginedintro.client.config.ModConfigScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -43,15 +41,6 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
-    @Inject(method = "init", at = @At("RETURN"))
-    private void addConfigButton(CallbackInfo ci) {
-        this.addRenderableWidget(
-            Button.builder(
-                Component.literal("Intro..."),
-                b -> Minecraft.getInstance().gui.setScreen(new ModConfigScreen(this))
-            ).bounds(this.width - 62, 8, 54, 20).build()
-        );
-    }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"))
     private void eliminateFadeInDelay(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
