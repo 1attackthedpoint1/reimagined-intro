@@ -15,7 +15,7 @@ public class ModConfigScreen extends Screen {
     private final Screen parent;
 
     public ModConfigScreen(Screen parent) {
-        super(Component.literal("Reimagined Intro Settings"));
+        super(Component.literal("Reimagined Intro Options"));
         this.parent = parent;
     }
 
@@ -26,24 +26,24 @@ public class ModConfigScreen extends Screen {
 
         // 1. Startup Intro Toggle
         this.addRenderableWidget(
-            CycleButton.onOffBuilder(ModConfig.get().enableIntro)
-                .create(centerX - 100, startY, 200, 20, Component.literal("Startup Intro"), (btn, val) -> {
+            CycleButton.booleanBuilder(Component.literal("§aYes"), Component.literal("§cNo"), ModConfig.get().enableIntro)
+                .create(centerX - 100, startY, 200, 20, Component.literal("Enable Reimagined Intro"), (btn, val) -> {
                     ModConfig.get().enableIntro = val;
                 })
         );
 
         // 2. Title Screen Loop Toggle
         this.addRenderableWidget(
-            CycleButton.onOffBuilder(ModConfig.get().enableTitleScreenLoop)
-                .create(centerX - 100, startY + 24, 200, 20, Component.literal("Title Screen Loop"), (btn, val) -> {
+            CycleButton.booleanBuilder(Component.literal("§6Animated"), Component.literal("§7Static"), ModConfig.get().enableTitleScreenLoop)
+                .create(centerX - 100, startY + 24, 200, 20, Component.literal("Title Screen"), (btn, val) -> {
                     ModConfig.get().enableTitleScreenLoop = val;
                 })
         );
 
         // 3. Skip Prompt Toggle
         this.addRenderableWidget(
-            CycleButton.onOffBuilder(ModConfig.get().showSkipPrompt)
-                .create(centerX - 100, startY + 48, 200, 20, Component.literal("Skip Prompt"), (btn, val) -> {
+            CycleButton.booleanBuilder(Component.literal("§aYes"), Component.literal("§cNo"), ModConfig.get().showSkipPrompt)
+                .create(centerX - 100, startY + 48, 200, 20, Component.literal("Show \"ESC to skip\""), (btn, val) -> {
                     ModConfig.get().showSkipPrompt = val;
                 })
         );
