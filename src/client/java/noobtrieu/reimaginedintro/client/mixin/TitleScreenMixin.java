@@ -42,6 +42,17 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
+    @WrapWithCondition(
+        method = "init",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/TitleScreen;addRenderableWidget(Lnet/minecraft/client/gui/components/events/GuiEventListener;)Lnet/minecraft/client/gui/components/events/GuiEventListener;")
+    )
+    private boolean shouldAddWidget(TitleScreen instance, net.minecraft.client.gui.components.events.GuiEventListener widget) {
+        if (widget instanceof net.minecraft.client.gui.components.PlainTextButton) {
+            // Suppress copyright button when custom loop is enabled
+            return !ModConfig.get().enableTitleScreenLoop;
+        }
+        return true;
+    }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"))
     private void eliminateFadeInDelay(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
@@ -68,6 +79,15 @@ public abstract class TitleScreenMixin extends Screen {
     )
     private boolean shouldRenderSplash(SplashRenderer instance, GuiGraphicsExtractor guiGraphics, int width, Font font, float alpha) {
         // Suppress splash text when custom loop is enabled
+        return !ModConfig.get().enableTitleScreenLoop;
+    }
+
+    @WrapWithCondition(
+        method = "extractRenderState",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;text(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V")
+    )
+    private boolean shouldRenderVersionText(GuiGraphicsExtractor instance, Font font, String text, int x, int y, int color) {
+        // Suppress version info text when custom loop is enabled
         return !ModConfig.get().enableTitleScreenLoop;
     }
 
