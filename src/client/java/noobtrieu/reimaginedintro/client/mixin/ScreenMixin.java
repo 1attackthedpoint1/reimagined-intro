@@ -24,6 +24,9 @@ public abstract class ScreenMixin {
             } else if (event.key() == InputConstants.KEY_F7) {
                 Minecraft.getInstance().gui.setScreen(new noobtrieu.reimaginedintro.client.config.ModConfigScreen((Screen) (Object) this));
                 cir.setReturnValue(true);
+            } else if (event.key() == InputConstants.KEY_ESCAPE && noobtrieu.reimaginedintro.client.IntroSoundController.isPlaying()) {
+                noobtrieu.reimaginedintro.client.IntroSoundController.stop();
+                cir.setReturnValue(true);
             }
         }
     }

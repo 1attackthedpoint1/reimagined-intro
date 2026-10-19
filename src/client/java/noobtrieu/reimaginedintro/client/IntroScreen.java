@@ -103,10 +103,4 @@ public class IntroScreen extends Screen {
     public boolean shouldCloseOnEsc() {
         return false;
     }
-
-    @Override
-    public void removed() {
-        super.removed();
-        IntroSoundController.stop();
-    }
 }

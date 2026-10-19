@@ -23,7 +23,6 @@ public class IntroManager {
             // If somehow accessed directly on TitleScreen before startIntro, initialize to loop
             startTimeMs = System.currentTimeMillis() - FrameStreamer.INTRO_TOTAL_DURATION_MS;
             FrameStreamer.init();
-            IntroSoundController.play();
         }
         return System.currentTimeMillis() - startTimeMs;
     }
