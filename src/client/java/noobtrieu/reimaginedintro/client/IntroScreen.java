@@ -22,6 +22,11 @@ public class IntroScreen extends Screen {
     }
 
     @Override
+    public void extractBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // Suppress default background and panorama overlay extraction
+    }
+
+    @Override
     public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         long elapsed = IntroManager.getElapsedMs();
 

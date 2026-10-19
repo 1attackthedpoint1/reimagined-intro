@@ -86,7 +86,10 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
-    @Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
+    @Inject(
+        method = "extractRenderState",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+    )
     private void renderCustomBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!ModConfig.get().enableTitleScreenLoop) {
             return;
@@ -127,6 +130,5 @@ public abstract class TitleScreenMixin extends Screen {
             0.0f,
             1.0f
         );
-        ci.cancel();
     }
 }
