@@ -1,11 +1,12 @@
 package noobtrieu.reimaginedintro.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import com.mojang.blaze3d.platform.InputConstants;
 
 public class IntroScreen extends Screen {
     public IntroScreen() {
@@ -15,6 +16,8 @@ public class IntroScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        // Clear any remaining red loading overlay so it doesn't flash over the intro
+        Minecraft.getInstance().gui.setOverlay(null);
         IntroManager.startIntro();
     }
 
@@ -50,11 +53,22 @@ public class IntroScreen extends Screen {
             y = (this.height - renderHeight) / 2;
         }
 
-        guiGraphics.blit(FrameStreamer.getTextureId(), x, y, renderWidth, renderHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        // Correct Minecraft 26.3 blit parameters: (id, x0, y0, x1, y1, u0, u1, v0, v1)
+        guiGraphics.blit(
+            FrameStreamer.getTextureId(),
+            x,
+            y,
+            x + renderWidth,
+            y + renderHeight,
+            0.0f,
+            1.0f,
+            0.0f,
+            1.0f
+        );
 
-        // Smooth fade-in from black during first 600ms
-        if (elapsed < 600) {
-            float fadeProgress = 1.0f - ((float) elapsed / 600.0f);
+        // Smooth fade-in from black during first 400ms
+        if (elapsed < 400) {
+            float fadeProgress = 1.0f - ((float) elapsed / 400.0f);
             int alpha = (int) (Math.clamp(fadeProgress, 0.0f, 1.0f) * 255.0f);
             if (alpha > 0) {
                 guiGraphics.fill(0, 0, this.width, this.height, (alpha << 24));

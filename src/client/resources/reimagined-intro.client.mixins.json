@@ -3,7 +3,6 @@
 	"package": "noobtrieu.reimaginedintro.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"GuiMixin",
 		"TitleScreenMixin",
 		"ScreenMixin"
 	],

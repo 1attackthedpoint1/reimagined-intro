@@ -7,6 +7,7 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
 import noobtrieu.reimaginedintro.client.FrameStreamer;
 import noobtrieu.reimaginedintro.client.IntroManager;
+import noobtrieu.reimaginedintro.client.IntroScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -16,6 +17,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class TitleScreenMixin extends Screen {
     protected TitleScreenMixin(Component title) {
         super(title);
+    }
+
+    @Inject(method = "init", at = @At("HEAD"), cancellable = true)
+    private void openIntroOnFirstLaunch(CallbackInfo ci) {
+        if (!IntroManager.hasPlayed()) {
+            IntroManager.setHasPlayed(true);
+            Minecraft.getInstance().gui.setScreen(new IntroScreen());
+            ci.cancel();
+        }
     }
 
     @Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
@@ -43,7 +53,18 @@ public abstract class TitleScreenMixin extends Screen {
             y = 0;
         }
 
-        guiGraphics.blit(FrameStreamer.getTextureId(), x, y, renderWidth, renderHeight, 0.0f, 0.0f, 1.0f, 1.0f);
+        // Correct Minecraft 26.3 blit parameters: (id, x0, y0, x1, y1, u0, u1, v0, v1)
+        guiGraphics.blit(
+            FrameStreamer.getTextureId(),
+            x,
+            y,
+            x + renderWidth,
+            y + renderHeight,
+            0.0f,
+            1.0f,
+            0.0f,
+            1.0f
+        );
         ci.cancel();
     }
 }

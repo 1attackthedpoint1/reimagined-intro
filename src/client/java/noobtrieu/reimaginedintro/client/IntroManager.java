@@ -2,6 +2,7 @@ package noobtrieu.reimaginedintro.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.TitleScreen;
+import noobtrieu.reimaginedintro.ReimaginedIntro;
 
 public class IntroManager {
     private static long startTimeMs = -1;
@@ -10,6 +11,7 @@ public class IntroManager {
 
     public static synchronized void startIntro() {
         if (startTimeMs == -1) {
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Starting intro sequence and audio.");
             startTimeMs = System.currentTimeMillis();
             FrameStreamer.init();
             IntroSoundController.play();
@@ -17,7 +19,12 @@ public class IntroManager {
     }
 
     public static long getElapsedMs() {
-        if (startTimeMs == -1) return 0;
+        if (startTimeMs == -1) {
+            // If somehow accessed directly on TitleScreen before startIntro, initialize to loop
+            startTimeMs = System.currentTimeMillis() - FrameStreamer.INTRO_TOTAL_DURATION_MS;
+            FrameStreamer.init();
+            IntroSoundController.play();
+        }
         return System.currentTimeMillis() - startTimeMs;
     }
 
@@ -35,6 +42,7 @@ public class IntroManager {
 
     public static void skip() {
         if (!skipped) {
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Intro skipped by user.");
             skipped = true;
             // Jump timeline to start of loop
             startTimeMs = System.currentTimeMillis() - FrameStreamer.INTRO_TOTAL_DURATION_MS;
@@ -46,11 +54,13 @@ public class IntroManager {
     }
 
     public static void onIntroFinished() {
+        ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Intro finished naturally. Transitioning to TitleScreen.");
         hasPlayed = true;
         Minecraft.getInstance().gui.setScreen(new TitleScreen());
     }
 
     public static void resetForReplay() {
+        ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Replaying intro.");
         startTimeMs = -1;
         skipped = false;
         hasPlayed = false;
