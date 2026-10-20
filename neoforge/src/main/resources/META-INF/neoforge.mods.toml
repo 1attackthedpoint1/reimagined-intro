@@ -3,24 +3,24 @@ loaderVersion = "${neoforge_loader_version_range}"
 license = "${license}"
 
 [[mods]]
-modId = "${mod_id}"
+modId = "reimagined_intro"
 version = "${version}"
 displayName = "${mod_name}"
-logoFile = "assets/reimagined-intro/icon.png"
+iconFile = "assets/reimagined-intro/icon.png"
 authors = "${mod_author}"
 description = '''${description}'''
 
 [[mixins]]
-config = "${mod_id}.mixins.json"
+config = "reimagined-intro.mixins.json"
 
-[[dependencies.${mod_id}]]
+[[dependencies.reimagined_intro]]
 modId = "neoforge"
 type = "required"
 versionRange = "[${neoforge_version},)"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.${mod_id}]]
+[[dependencies.reimagined_intro]]
 modId = "minecraft"
 type = "required"
 versionRange = "${minecraft_version_range}"

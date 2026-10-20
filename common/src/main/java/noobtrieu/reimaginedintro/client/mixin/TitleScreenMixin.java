@@ -80,7 +80,8 @@ public abstract class TitleScreenMixin extends Screen {
 
     @WrapWithCondition(
         method = "extractRenderState",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/LogoRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IF)V")
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/LogoRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IF)V"),
+        require = 0
     )
     private boolean shouldRenderLogo(LogoRenderer instance, GuiGraphicsExtractor guiGraphics, int width, float alpha) {
         // Suppress Minecraft logo when custom loop is enabled
@@ -89,7 +90,8 @@ public abstract class TitleScreenMixin extends Screen {
 
     @WrapWithCondition(
         method = "extractRenderState",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/SplashRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;ILnet/minecraft/client/gui/Font;F)V")
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/SplashRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;ILnet/minecraft/client/gui/Font;F)V"),
+        require = 0
     )
     private boolean shouldRenderSplash(SplashRenderer instance, GuiGraphicsExtractor guiGraphics, int width, Font font, float alpha) {
         // Suppress splash text when custom loop is enabled
@@ -98,10 +100,31 @@ public abstract class TitleScreenMixin extends Screen {
 
     @WrapWithCondition(
         method = "extractRenderState",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;text(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V")
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;text(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"),
+        require = 0
     )
     private boolean shouldRenderVersionText(GuiGraphicsExtractor instance, Font font, String text, int x, int y, int color) {
-        // Suppress version info text when custom loop is enabled
+        // Suppress version info text when custom loop is enabled (Vanilla / Fabric)
+        return !ModConfig.get().enableTitleScreenLoop;
+    }
+
+    @WrapWithCondition(
+        method = "extractRenderState",
+        at = @At(value = "INVOKE", target = "Lnet/neoforged/neoforge/internal/BrandingControl;forEachLine(ZZLjava/util/function/BiConsumer;)V"),
+        require = 0
+    )
+    private boolean shouldRenderNeoForgeBrandingLine(boolean includeMC, boolean reverse, java.util.function.BiConsumer<?, ?> lineConsumer) {
+        // Suppress NeoForge version info text when custom loop is enabled
+        return !ModConfig.get().enableTitleScreenLoop;
+    }
+
+    @WrapWithCondition(
+        method = "extractRenderState",
+        at = @At(value = "INVOKE", target = "Lnet/neoforged/neoforge/internal/BrandingControl;forEachAboveCopyrightLine(Ljava/util/function/BiConsumer;)V"),
+        require = 0
+    )
+    private boolean shouldRenderNeoForgeBrandingAboveCopyright(java.util.function.BiConsumer<?, ?> lineConsumer) {
+        // Suppress NeoForge extra branding above copyright when custom loop is enabled
         return !ModConfig.get().enableTitleScreenLoop;
     }
 

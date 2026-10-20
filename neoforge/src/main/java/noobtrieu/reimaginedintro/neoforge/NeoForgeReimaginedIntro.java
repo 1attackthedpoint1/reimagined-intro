@@ -11,8 +11,10 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 import noobtrieu.reimaginedintro.ReimaginedIntro;
 import noobtrieu.reimaginedintro.client.config.ModConfigScreen;
 
-@Mod(ReimaginedIntro.MOD_ID)
+@Mod(NeoForgeReimaginedIntro.MOD_ID)
 public class NeoForgeReimaginedIntro {
+    public static final String MOD_ID = "reimagined_intro";
+
     public NeoForgeReimaginedIntro(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::register);
 
@@ -28,7 +30,7 @@ public class NeoForgeReimaginedIntro {
     private void register(RegisterEvent event) {
         event.register(Registries.SOUND_EVENT, helper -> {
             helper.register(ReimaginedIntro.INTRO_SOUND_ID, ReimaginedIntro.INTRO_SOUND_EVENT);
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Registered sound events (NeoForge).");
         });
-        ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Registered sound events (NeoForge).");
     }
 }
