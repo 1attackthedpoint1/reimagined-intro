@@ -29,14 +29,11 @@ public class IntroScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         long elapsed = IntroManager.getElapsedMs();
-
-        if (elapsed >= FrameStreamer.INTRO_TOTAL_DURATION_MS) {
-            IntroManager.onIntroFinished();
-            return;
-        }
+        boolean finished = elapsed >= FrameStreamer.INTRO_TOTAL_DURATION_MS;
+        long renderElapsed = finished ? FrameStreamer.INTRO_TOTAL_DURATION_MS : elapsed;
 
         // Update active texture
-        FrameStreamer.update(elapsed);
+        FrameStreamer.update(renderElapsed);
 
         // Fill background with black
         guiGraphics.fill(0, 0, this.width, this.height, 0xFF000000);
@@ -87,6 +84,10 @@ public class IntroScreen extends Screen {
             Component skipPrompt = Component.literal("ESC to skip");
             int textWidth = this.font.width(skipPrompt);
             guiGraphics.text(this.font, skipPrompt, this.width - textWidth - 16, this.height - 20, 0x66FFFFFF);
+        }
+
+        if (finished) {
+            IntroManager.onIntroFinished();
         }
     }
 

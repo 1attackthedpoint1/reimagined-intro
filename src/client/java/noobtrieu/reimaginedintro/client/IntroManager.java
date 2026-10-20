@@ -47,6 +47,7 @@ public class IntroManager {
             // Jump timeline to start of loop
             startTimeMs = System.currentTimeMillis() - FrameStreamer.INTRO_TOTAL_DURATION_MS;
             hasPlayed = true;
+            FrameStreamer.warmupLoop();
             FrameStreamer.loadLastIntroFrame();
 
             // Transition directly to TitleScreen with smooth UI fade-in
@@ -57,6 +58,8 @@ public class IntroManager {
     public static void onIntroFinished() {
         ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Intro finished naturally. Transitioning to TitleScreen.");
         hasPlayed = true;
+        // Align timeline so loop begins smoothly at frame 1 without jump
+        startTimeMs = System.currentTimeMillis() - FrameStreamer.INTRO_TOTAL_DURATION_MS;
         FrameStreamer.loadLastIntroFrame();
         Minecraft.getInstance().gui.setScreen(new TitleScreen(true));
     }

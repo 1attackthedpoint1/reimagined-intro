@@ -47,6 +47,11 @@ public class FrameStreamer {
     public static void loadLastIntroFrame() {
         if (!initialized) init();
         uploadFrame(false, INTRO_FRAME_COUNT);
+        lastUploadedFrame = INTRO_FRAME_COUNT;
+    }
+
+    public static void warmupLoop() {
+        prefetchUpcoming(true, 1, 4);
     }
 
     public static void update(long elapsedMs) {
@@ -74,6 +79,11 @@ public class FrameStreamer {
 
             // Prefetch ahead by 4 frames
             prefetchUpcoming(inLoop, targetFrame + 1, targetFrame + 4);
+
+            // If nearing end of intro, prefetch loop start frames in the background
+            if (!inLoop && targetFrame >= INTRO_FRAME_COUNT - 8) {
+                prefetchUpcoming(true, 1, 4);
+            }
         }
     }
 
