@@ -82,19 +82,15 @@ public class LegacyMigrationHandler {
             if (choice == 0) {
                 // Disable Legacy Mods (Recommended): Disable mod jars, disable v2 layouts, remove marker
                 performDisableLegacyMods(gameDir, configDir, legacyVersionFile);
-                ModConfig.get().ignoreLegacyWarning = true;
-                ModConfig.save();
             } else if (choice == 1) {
                 // Disable v2 Layouts Only: Keep jars intact, disable v2 layouts, remove marker
                 performDisableLayoutsOnly(configDir, legacyVersionFile);
+            }
+
+            // Only suppress future warnings if the user explicitly checked the box
+            if (doNotShowAgain.isSelected()) {
                 ModConfig.get().ignoreLegacyWarning = true;
                 ModConfig.save();
-            } else {
-                // Keep Everything (May Break) or closed window
-                if (doNotShowAgain.isSelected()) {
-                    ModConfig.get().ignoreLegacyWarning = true;
-                    ModConfig.save();
-                }
             }
         } catch (Exception e) {
             ReimaginedIntro.LOGGER.error("[ReimaginedIntro] Error showing migration assistant dialog", e);
