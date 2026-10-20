@@ -138,6 +138,25 @@ public class LegacyMigrationHandler {
         return disabled;
     }
 
+    private static void cleanCustomizableMenus(Path configDir) {
+        Path file = configDir.resolve("fancymenu").resolve("customizablemenus.txt");
+        if (!Files.exists(file)) return;
+
+        try {
+            String content = Files.readString(file);
+            String updated = content
+                .replaceAll("(?s)de\\.keksuccino\\.drippyloadingscreen\\.customization\\.DrippyOverlayScreen\\s*\\{[^}]*\\}", "")
+                .replaceAll("(?s)net\\.minecraft\\.client\\.gui\\.screens\\.TitleScreen\\s*\\{[^}]*\\}", "");
+
+            if (!content.equals(updated)) {
+                Files.writeString(file, updated);
+                ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Cleaned TitleScreen and DrippyOverlayScreen from customizablemenus.txt");
+            }
+        } catch (Exception e) {
+            ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not update customizablemenus.txt: {}", e.getMessage());
+        }
+    }
+
     private static void cleanCustomGuiScreens(Path configDir) {
         Path file = configDir.resolve("fancymenu").resolve("custom_gui_screens.txt");
         if (!Files.exists(file)) return;
@@ -157,6 +176,7 @@ public class LegacyMigrationHandler {
 
     private static void performDisableLayouts(Path configDir, Path legacyVersionFile) {
         List<String> disabledLayouts = disableLegacyLayouts(configDir);
+        cleanCustomizableMenus(configDir);
         cleanCustomGuiScreens(configDir);
 
         try {
