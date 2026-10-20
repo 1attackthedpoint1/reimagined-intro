@@ -1,0 +1,36 @@
+{
+	"schemaVersion": 1,
+	"id": "${mod_id}",
+	"version": "${version}",
+	"name": "${mod_name}",
+	"description": "${description}",
+	"authors": [
+		"${mod_author}"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/mod/reimagined-intro"
+	},
+	"license": "${license}",
+	"icon": "assets/reimagined-intro/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"noobtrieu.reimaginedintro.fabric.FabricReimaginedIntro"
+		],
+		"client": [
+			"noobtrieu.reimaginedintro.fabric.FabricReimaginedIntroClient"
+		],
+		"modmenu": [
+			"noobtrieu.reimaginedintro.fabric.compat.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"reimagined-intro.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=${fabric_loader_version}",
+		"minecraft": "~${minecraft_version}",
+		"java": ">=${java_version}",
+		"fabric-api": "*"
+	}
+}
