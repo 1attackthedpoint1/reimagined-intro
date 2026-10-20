@@ -3,7 +3,7 @@
 	"id": "reimagined-intro",
 	"version": "${version}",
 	"name": "Reimagined Intro",
-	"description": "Cinematic Mojang startup animation and looping animated Title Screen background.",
+	"description": "Replaces Minecraft's intro with a new Mojang animation and the official Minecraft channel outro!",
 	"authors": [
 		"NoobTrieu"
 	],
