@@ -6,11 +6,7 @@ import noobtrieu.reimaginedintro.client.config.ModConfig;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.*;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -76,8 +72,8 @@ public class LegacyMigrationHandler {
             panel.add(doNotShowAgain, BorderLayout.SOUTH);
 
             String[] options = new String[]{
-                "Disable FancyMenu (Recommended)",
-                "Disable Config Only",
+                "Disable Legacy Mods (Recommended)",
+                "Disable v2 Layouts Only (Keep FancyMenu)",
                 "Keep Everything (May Break)"
             };
 
@@ -93,13 +89,13 @@ public class LegacyMigrationHandler {
             );
 
             if (choice == 0) {
-                // Remove FancyMenu (Recommended): Disable mods directly without backing up configs, keep marker
-                performRemoveFancyMenu(gameDir);
+                // Disable Legacy Mods (Recommended): Disable mod jars, disable v2 layouts, remove marker
+                performDisableLegacyMods(gameDir, configDir, legacyVersionFile);
                 ModConfig.get().ignoreLegacyWarning = true;
                 ModConfig.save();
             } else if (choice == 1) {
-                // Disable Configs Only: Move FancyMenu configs to fancymenu_backup_[timestamp], keep marker, keep jars
-                performDisableConfigsOnly(configDir, legacyVersionFile);
+                // Disable v2 Layouts Only: Keep jars intact, disable v2 layouts, remove marker
+                performDisableLayoutsOnly(configDir, legacyVersionFile);
                 ModConfig.get().ignoreLegacyWarning = true;
                 ModConfig.save();
             } else {
@@ -134,55 +130,57 @@ public class LegacyMigrationHandler {
         return false;
     }
 
-    private static Path backupAndDisableFancyMenuConfig(Path configDir, Path legacyVersionFile) {
-        try {
-            String timestamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").format(LocalDateTime.now());
-            Path backupDir = configDir.resolve("fancymenu_backup_" + timestamp);
-            Path fancyMenuDir = configDir.resolve("fancymenu");
+    private static List<String> disableLegacyLayouts(Path configDir) {
+        List<String> disabled = new ArrayList<>();
+        Path customizationDir = configDir.resolve("fancymenu").resolve("customization");
+        if (!Files.isDirectory(customizationDir)) {
+            return disabled;
+        }
 
-            if (!Files.isDirectory(fancyMenuDir)) {
-                return null;
-            }
-
-            Files.createDirectories(backupDir);
-            copyDirectory(fancyMenuDir, backupDir);
-
-            // Clear old layout/customization files from config/fancymenu but preserve the marker file
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(fancyMenuDir)) {
-                for (Path entry : stream) {
-                    if (entry.getFileName().toString().equalsIgnoreCase("reimagined_intro_version.txt")) {
-                        continue; // Keep marker intact
-                    }
-                    if (Files.isDirectory(entry)) {
-                        deleteDirectory(entry);
-                    } else {
-                        Files.deleteIfExists(entry);
-                    }
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(customizationDir, "reimagined_intro_*.txt")) {
+            for (Path file : stream) {
+                String fileName = file.getFileName().toString();
+                Path target = file.resolveSibling(fileName + ".disabled");
+                try {
+                    Files.move(file, target, StandardCopyOption.REPLACE_EXISTING);
+                    disabled.add(fileName);
+                } catch (Exception e) {
+                    ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not disable layout {}: {}", fileName, e.getMessage());
                 }
             }
-
-            ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Disabled FancyMenu configs and backed up to: {}", backupDir);
-            return backupDir;
         } catch (Exception e) {
-            ReimaginedIntro.LOGGER.error("[ReimaginedIntro] Failed to backup and disable FancyMenu configs", e);
-            return null;
+            ReimaginedIntro.LOGGER.error("[ReimaginedIntro] Error scanning customization directory", e);
         }
+        return disabled;
     }
 
-    private static void performRemoveFancyMenu(Path gameDir) {
+    private static void performDisableLegacyMods(Path gameDir, Path configDir, Path legacyVersionFile) {
         Path modsDir = gameDir.resolve("mods");
         List<String> disabledJars = disableLegacyJars(modsDir);
+        List<String> disabledLayouts = disableLegacyLayouts(configDir);
 
-        StringBuilder sb = new StringBuilder("Legacy Mods Disabled!\n\n");
+        try {
+            Files.deleteIfExists(legacyVersionFile);
+        } catch (Exception e) {
+            ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not delete legacy marker file", e);
+        }
+
+        StringBuilder sb = new StringBuilder("Legacy Setup Disabled!\n\n");
         if (!disabledJars.isEmpty()) {
             sb.append("• Disabled mod JAR(s):\n");
             for (String jar : disabledJars) {
                 sb.append("   - ").append(jar).append(" -> .disabled\n");
             }
-        } else {
-            sb.append("• No conflicting JAR files needed disabling.\n");
+            sb.append("\n");
         }
-        sb.append("\nYou're all set to enjoy Reimagined Intro v3!");
+        if (!disabledLayouts.isEmpty()) {
+            sb.append("• Disabled v2 FancyMenu layout(s):\n");
+            for (String layout : disabledLayouts) {
+                sb.append("   - ").append(layout).append(" -> .disabled\n");
+            }
+            sb.append("\n");
+        }
+        sb.append("You're all set to enjoy Reimagined Intro v3!");
 
         JOptionPane.showMessageDialog(
             null,
@@ -192,15 +190,27 @@ public class LegacyMigrationHandler {
         );
     }
 
-    private static void performDisableConfigsOnly(Path configDir, Path legacyVersionFile) {
-        Path backupDir = backupAndDisableFancyMenuConfig(configDir, legacyVersionFile);
+    private static void performDisableLayoutsOnly(Path configDir, Path legacyVersionFile) {
+        List<String> disabledLayouts = disableLegacyLayouts(configDir);
 
-        StringBuilder sb = new StringBuilder("FancyMenu Configs Disabled!\n\n");
-        if (backupDir != null) {
-            sb.append("• Old FancyMenu configs backed up to:\n  config/").append(backupDir.getFileName()).append("\n\n");
+        try {
+            Files.deleteIfExists(legacyVersionFile);
+        } catch (Exception e) {
+            ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not delete legacy marker file", e);
         }
-        sb.append("• FancyMenu mod JAR(s) left intact.\n");
-        sb.append("\nYou're all set to enjoy Reimagined Intro v3!");
+
+        StringBuilder sb = new StringBuilder("v2 Layouts Disabled!\n\n");
+        if (!disabledLayouts.isEmpty()) {
+            sb.append("• Disabled v2 FancyMenu layout(s):\n");
+            for (String layout : disabledLayouts) {
+                sb.append("   - ").append(layout).append(" -> .disabled\n");
+            }
+            sb.append("\n");
+        } else {
+            sb.append("• No legacy layout files needed disabling.\n\n");
+        }
+        sb.append("• FancyMenu mod JAR(s) left intact.\n\n");
+        sb.append("You're all set to enjoy Reimagined Intro v3!");
 
         JOptionPane.showMessageDialog(
             null,
@@ -234,35 +244,5 @@ public class LegacyMigrationHandler {
             ReimaginedIntro.LOGGER.error("[ReimaginedIntro] Error scanning mods directory", e);
         }
         return disabled;
-    }
-
-    private static void copyDirectory(Path source, Path target) throws IOException {
-        try (var stream = Files.walk(source)) {
-            stream.forEach(src -> {
-                try {
-                    Path dest = target.resolve(source.relativize(src));
-                    if (Files.isDirectory(src)) {
-                        Files.createDirectories(dest);
-                    } else {
-                        Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-                    }
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
-        }
-    }
-
-    private static void deleteDirectory(Path path) throws IOException {
-        try (var stream = Files.walk(path)) {
-            stream.sorted((a, b) -> b.compareTo(a))
-                  .forEach(p -> {
-                      try {
-                          Files.deleteIfExists(p);
-                      } catch (IOException e) {
-                          throw new UncheckedIOException(e);
-                      }
-                  });
-        }
     }
 }
