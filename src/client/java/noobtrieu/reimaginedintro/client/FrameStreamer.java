@@ -69,9 +69,50 @@ public class FrameStreamer {
             uploadFrame(inLoop, targetFrame);
             lastUploadedFrame = targetFrame;
 
+            // Free and remove any skipped or obsolete frames from off-heap memory
+            pruneStaleFrames(inLoop, targetFrame);
+
             // Prefetch ahead by 4 frames
             prefetchUpcoming(inLoop, targetFrame + 1, targetFrame + 4);
         }
+    }
+
+    private static void pruneStaleFrames(boolean isLoop, int currentFrame) {
+        if (predecodedCache.isEmpty()) return;
+
+        predecodedCache.entrySet().removeIf(entry -> {
+            String key = entry.getKey();
+            boolean entryIsLoop = key.startsWith("l_");
+
+            // If we've entered the loop phase, immediately free any remaining intro frames
+            if (isLoop && !entryIsLoop) {
+                entry.getValue().close();
+                return true;
+            }
+
+            if (isLoop != entryIsLoop) {
+                return false;
+            }
+
+            try {
+                int frame = Integer.parseInt(key.substring(2));
+                boolean isStale;
+                if (!isLoop) {
+                    isStale = frame < currentFrame;
+                } else {
+                    int distance = (frame - currentFrame + LOOP_FRAME_COUNT) % LOOP_FRAME_COUNT;
+                    isStale = distance > 8;
+                }
+
+                if (isStale) {
+                    entry.getValue().close();
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
+
+            return false;
+        });
     }
 
     private static void uploadFrame(boolean isLoop, int frameIndex) {
