@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(TitleScreen.class)
+@Mixin(value = TitleScreen.class, priority = 2000)
 public abstract class TitleScreenMixin extends Screen {
     @Shadow private boolean fading;
     @Shadow private long fadeInStart;
@@ -43,13 +43,28 @@ public abstract class TitleScreenMixin extends Screen {
     }
 
     @Inject(method = "init", at = @At("TAIL"))
-    private void removeCopyrightButton(CallbackInfo ci) {
+    private void removeCopyrightAndFancyMenuWidgets(CallbackInfo ci) {
         if (ModConfig.get().enableTitleScreenLoop) {
             for (net.minecraft.client.gui.components.events.GuiEventListener listener : new java.util.ArrayList<>(this.children())) {
-                if (listener instanceof net.minecraft.client.gui.components.PlainTextButton) {
+                if (isSuppressedWidget(listener)) {
                     this.removeWidget(listener);
+                    if (listener instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
+                        widget.visible = false;
+                    }
                 }
             }
+        }
+    }
+
+    private static boolean isSuppressedWidget(Object listener) {
+        if (listener instanceof net.minecraft.client.gui.components.PlainTextButton) {
+            return true;
+        }
+        try {
+            Object id = listener.getClass().getMethod("getWidgetIdentifierFancyMenu").invoke(listener);
+            return id instanceof String s && s.startsWith("minecraft_");
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 
