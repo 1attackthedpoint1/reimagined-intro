@@ -54,7 +54,8 @@ public class LegacyMigrationHandler {
             JLabel messageLabel = new JLabel("<html><body style='width: 380px; font-family: sans-serif;'>"
                 + "<h2 style='margin: 0 0 8px 0; color: #1E3A8A;'>Previous Version Detected (v2)</h2>"
                 + "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> was detected.</p>"
-                + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is now a standalone mod and no longer requires FancyMenu (or its dependent mods). Leaving the old v2 layouts active will cause visual glitches and duplicate screens.</p>"
+                + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is now a standalone mod and no longer requires FancyMenu. Leaving the old v2 layouts active will cause visual glitches and duplicate screens.</p>"
+                + "<p style='margin: 0 0 8px 0;'><i>(Note: If you no longer need FancyMenu or Drippy Loading Screen, you can delete their JARs from your mods folder after closing the game.)</i></p>"
                 + "<p style='margin: 0 0 4px 0;'><b>How would you like to proceed?</b></p>"
                 + "</body></html>");
             panel.add(messageLabel, BorderLayout.CENTER);
@@ -63,8 +64,7 @@ public class LegacyMigrationHandler {
             panel.add(doNotShowAgain, BorderLayout.SOUTH);
 
             String[] options = new String[]{
-                "Disable Legacy Mods (Recommended)",
-                "Disable v2 Layouts Only (Keep FancyMenu)",
+                "Disable v2 Layouts (Recommended)",
                 "Keep Everything (May Break)"
             };
 
@@ -80,11 +80,8 @@ public class LegacyMigrationHandler {
             );
 
             if (choice == 0) {
-                // Disable Legacy Mods (Recommended): Disable mod jars, disable v2 layouts, remove marker
-                performDisableLegacyMods(gameDir, configDir, legacyVersionFile);
-            } else if (choice == 1) {
-                // Disable v2 Layouts Only: Keep jars intact, disable v2 layouts, remove marker
-                performDisableLayoutsOnly(configDir, legacyVersionFile);
+                // Disable v2 Layouts (Recommended): Disable layout files, unhook screens, remove marker
+                performDisableLayouts(configDir, legacyVersionFile);
             }
 
             // Only suppress future warnings if the user explicitly checked the box
@@ -141,44 +138,46 @@ public class LegacyMigrationHandler {
         return disabled;
     }
 
-    private static void performDisableLegacyMods(Path gameDir, Path configDir, Path legacyVersionFile) {
-        Path modsDir = gameDir.resolve("mods");
-        List<String> disabledJars = disableLegacyJars(modsDir);
-        List<String> disabledLayouts = disableLegacyLayouts(configDir);
+    private static void cleanCustomizableMenus(Path configDir) {
+        Path file = configDir.resolve("fancymenu").resolve("customizablemenus.txt");
+        if (!Files.exists(file)) return;
 
         try {
-            Files.deleteIfExists(legacyVersionFile);
+            String content = Files.readString(file);
+            String updated = content
+                .replaceAll("(?s)de\\.keksuccino\\.drippyloadingscreen\\.customization\\.DrippyOverlayScreen\\s*\\{[^}]*\\}", "")
+                .replaceAll("(?s)net\\.minecraft\\.client\\.gui\\.screens\\.TitleScreen\\s*\\{[^}]*\\}", "");
+
+            if (!content.equals(updated)) {
+                Files.writeString(file, updated);
+                ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Cleaned TitleScreen and DrippyOverlayScreen from customizablemenus.txt");
+            }
         } catch (Exception e) {
-            ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not delete legacy marker file", e);
+            ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not update customizablemenus.txt: {}", e.getMessage());
         }
-
-        StringBuilder sb = new StringBuilder("Legacy Setup Disabled!\n\n");
-        if (!disabledJars.isEmpty()) {
-            sb.append("• Disabled mod JAR(s):\n");
-            for (String jar : disabledJars) {
-                sb.append("   - ").append(jar).append("\n");
-            }
-            sb.append("\n");
-        }
-        if (!disabledLayouts.isEmpty()) {
-            sb.append("• Disabled v2 FancyMenu layout(s):\n");
-            for (String layout : disabledLayouts) {
-                sb.append("   - ").append(layout).append("\n");
-            }
-            sb.append("\n");
-        }
-        sb.append("You're all set to enjoy Reimagined Intro v3!");
-
-        JOptionPane.showMessageDialog(
-            null,
-            sb.toString(),
-            "Reimagined Intro",
-            JOptionPane.INFORMATION_MESSAGE
-        );
     }
 
-    private static void performDisableLayoutsOnly(Path configDir, Path legacyVersionFile) {
+    private static void cleanCustomGuiScreens(Path configDir) {
+        Path file = configDir.resolve("fancymenu").resolve("custom_gui_screens.txt");
+        if (!Files.exists(file)) return;
+
+        try {
+            String content = Files.readString(file);
+            String updated = content.replaceAll("(?s)custom_gui\\s*\\{[^}]*identifier\\s*=\\s*reimagined_intro[^}]*\\}", "");
+
+            if (!content.equals(updated)) {
+                Files.writeString(file, updated);
+                ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Cleaned reimagined_intro from custom_gui_screens.txt");
+            }
+        } catch (Exception e) {
+            ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not update custom_gui_screens.txt: {}", e.getMessage());
+        }
+    }
+
+    private static void performDisableLayouts(Path configDir, Path legacyVersionFile) {
         List<String> disabledLayouts = disableLegacyLayouts(configDir);
+        cleanCustomizableMenus(configDir);
+        cleanCustomGuiScreens(configDir);
 
         try {
             Files.deleteIfExists(legacyVersionFile);
@@ -193,10 +192,9 @@ public class LegacyMigrationHandler {
                 sb.append("   - ").append(layout).append("\n");
             }
             sb.append("\n");
-        } else {
-            sb.append("• No legacy layout files needed disabling.\n\n");
         }
-        sb.append("• FancyMenu mod JAR(s) left intact.\n\n");
+        sb.append("• Unhooked FancyMenu from TitleScreen and LoadingOverlay.\n");
+        sb.append("• Legacy marker removed.\n\n");
         sb.append("You're all set to enjoy Reimagined Intro v3!");
 
         JOptionPane.showMessageDialog(
@@ -205,31 +203,5 @@ public class LegacyMigrationHandler {
             "Reimagined Intro",
             JOptionPane.INFORMATION_MESSAGE
         );
-    }
-
-    private static List<String> disableLegacyJars(Path modsDir) {
-        List<String> disabled = new ArrayList<>();
-        if (!Files.isDirectory(modsDir)) {
-            return disabled;
-        }
-
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(modsDir, "*.jar")) {
-            for (Path jar : stream) {
-                String name = jar.getFileName().toString().toLowerCase(Locale.ROOT);
-                // Disable FancyMenu and, if present, dependent Drippy Loading Screen
-                if (name.contains("fancymenu") || name.contains("drippyloadingscreen")) {
-                    Path target = jar.resolveSibling(jar.getFileName().toString() + ".disabled");
-                    try {
-                        Files.move(jar, target, StandardCopyOption.REPLACE_EXISTING);
-                        disabled.add(jar.getFileName().toString());
-                    } catch (Exception e) {
-                        ReimaginedIntro.LOGGER.warn("[ReimaginedIntro] Could not rename jar {}: {}", jar, e.getMessage());
-                    }
-                }
-            }
-        } catch (Exception e) {
-            ReimaginedIntro.LOGGER.error("[ReimaginedIntro] Error scanning mods directory", e);
-        }
-        return disabled;
     }
 }
