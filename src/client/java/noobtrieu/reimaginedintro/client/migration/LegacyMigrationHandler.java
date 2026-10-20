@@ -32,10 +32,6 @@ public class LegacyMigrationHandler {
             return;
         }
 
-        boolean hasDrippyMod = FabricLoader.getInstance().isModLoaded("drippyloadingscreen");
-        boolean hasDrippyJar = hasModJar(modsDir, "drippyloadingscreen");
-        boolean hasDrippy = hasDrippyMod || hasDrippyJar;
-
         ReimaginedIntro.LOGGER.info("[ReimaginedIntro] Legacy Reimagined Intro v2 setup detected! Prompting migration assistant...");
 
         String prevHeadless = System.getProperty("java.awt.headless");
@@ -55,15 +51,10 @@ public class LegacyMigrationHandler {
             JPanel panel = new JPanel(new BorderLayout(0, 14));
             panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-            String detectedDesc = hasDrippy
-                ? "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> using <i>FancyMenu</i> & <i>Drippy Loading Screen</i> was detected in this instance.</p>"
-                  + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is a standalone native mod. Because Drippy Loading Screen depends directly on FancyMenu, removing FancyMenu will also disable Drippy Loading Screen to prevent game crashes.</p>"
-                : "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> using <i>FancyMenu</i> was detected in this instance.</p>"
-                  + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is now a standalone native mod and no longer requires FancyMenu. Leaving old v2 layouts active may cause visual glitches or duplicate title screen elements.</p>";
-
             JLabel messageLabel = new JLabel("<html><body style='width: 380px; font-family: sans-serif;'>"
                 + "<h2 style='margin: 0 0 8px 0; color: #1E3A8A;'>Previous Version Detected (v2)</h2>"
-                + detectedDesc
+                + "<p style='margin: 0 0 8px 0;'>An existing setup of <b>Reimagined Intro (v2)</b> was detected.</p>"
+                + "<p style='margin: 0 0 8px 0;'><b>Reimagined Intro v3</b> is now a standalone mod and no longer requires FancyMenu (or its dependent mods). Leaving the old v2 layouts active will cause visual glitches and duplicate screens.</p>"
                 + "<p style='margin: 0 0 4px 0;'><b>How would you like to proceed?</b></p>"
                 + "</body></html>");
             panel.add(messageLabel, BorderLayout.CENTER);
@@ -169,14 +160,14 @@ public class LegacyMigrationHandler {
         if (!disabledJars.isEmpty()) {
             sb.append("• Disabled mod JAR(s):\n");
             for (String jar : disabledJars) {
-                sb.append("   - ").append(jar).append(" -> .disabled\n");
+                sb.append("   - ").append(jar).append("\n");
             }
             sb.append("\n");
         }
         if (!disabledLayouts.isEmpty()) {
             sb.append("• Disabled v2 FancyMenu layout(s):\n");
             for (String layout : disabledLayouts) {
-                sb.append("   - ").append(layout).append(" -> .disabled\n");
+                sb.append("   - ").append(layout).append("\n");
             }
             sb.append("\n");
         }
@@ -203,7 +194,7 @@ public class LegacyMigrationHandler {
         if (!disabledLayouts.isEmpty()) {
             sb.append("• Disabled v2 FancyMenu layout(s):\n");
             for (String layout : disabledLayouts) {
-                sb.append("   - ").append(layout).append(" -> .disabled\n");
+                sb.append("   - ").append(layout).append("\n");
             }
             sb.append("\n");
         } else {
