@@ -111,13 +111,13 @@ public final class ScreenTransitions {
 
         if (t == Type.FLUID) {
             Screen current = MinecraftAccessorBridge.getActiveScreen();
-            if (hasSelectionList(current) && videoAvailable()) {
+            if ((hasSelectionList(current) || hasSelectionList(next)) && videoAvailable()) {
                 // List screen leaving: wipe it out under the video cover first,
                 // the incoming side is decided at the swap point.
                 pending = next;
                 type = Type.FLUID;
                 fluidWipe = true;
-                durationMs = Math.max(120, d * 4 / 10) * 2; // first half = wipe-out
+                durationMs = d; // first half (d/2) = wipe-out, same speed as phase B
                 startMs = Util.getMillis();
                 phase = Phase.A;
                 return true;
@@ -159,7 +159,7 @@ public final class ScreenTransitions {
         if (hasSelectionList(incoming)) {
             if (videoAvailable()) {
                 // Reveal the list screen top-to-bottom over the shared background.
-                startPhaseB(Math.max(180, d * 6 / 10), true);
+                startPhaseB(d, true);
             } else {
                 startFallbackFadeB(d);
             }
@@ -273,16 +273,16 @@ public final class ScreenTransitions {
                 if (phase == Phase.A && fluidWipe) {
                     // Wipe-out: the shared background erases the old screen top-down.
                     if (e > 0.0f) {
-                        drawVideoRegion(g, 0, Math.round(h * ease(e)));
+                        int edge = Math.round(h * ease(e));
+                        drawVideoRegion(g, 0, edge);
+                        drawWipeEdge(g, (int) w, edge);
                     }
                 } else if (phase == Phase.B && fluidWipe) {
                     // Wipe-in: the remaining cover shrinks away top-down.
                     int edge = Math.round(h * ease(e));
                     if (edge < h) {
                         drawVideoRegion(g, edge, (int) h);
-                        if (edge > 0) {
-                            g.fill(0, edge - 1, (int) w, edge + 1, 0x30FFFFFF);
-                        }
+                        drawWipeEdge(g, (int) w, edge);
                     }
                 } else if (phase == Phase.B && morphTargets != null) {
                     drawMorph(g, e);
@@ -299,6 +299,16 @@ public final class ScreenTransitions {
 
     private static boolean posePushed;
     private static float curtainAlpha;
+
+    /** Soft glowing edge for the wipe line (pure fill stack, VulkanMod-safe). */
+    private static void drawWipeEdge(GuiGraphics g, int w, int edge) {
+        if (edge <= 0) return;
+        g.fill(0, edge - 6, w, edge - 3, 0x10FFFFFF);
+        g.fill(0, edge - 3, w, edge - 1, 0x26FFFFFF);
+        g.fill(0, edge - 1, w, edge + 1, 0x87FFFFFF); // bright core
+        g.fill(0, edge + 1, w, edge + 3, 0x26FFFFFF);
+        g.fill(0, edge + 3, w, edge + 6, 0x10FFFFFF);
+    }
 
     private static void applyOutgoing(GuiGraphics g, float w, float h, float e) {
         switch (type) {
@@ -346,6 +356,15 @@ public final class ScreenTransitions {
                 posePushed = true;
             }
             case FADE -> curtainAlpha = 1.0f - e;
+            case FLUID -> {
+                // Wipe-in companion: the incoming page settles with a slight
+                // downward drift so it feels like it follows the reveal line.
+                if (fluidWipe && e < 1.0f) {
+                    g.pose().pushMatrix();
+                    g.pose().translate(0.0f, (1.0f - ease(e)) * 12.0f);
+                    posePushed = true;
+                }
+            }
             case ZOOM -> {
                 float s = 0.92f + 0.08f * ease(e);
                 g.fill(0, 0, (int) w, (int) h, 0xFF000000);
