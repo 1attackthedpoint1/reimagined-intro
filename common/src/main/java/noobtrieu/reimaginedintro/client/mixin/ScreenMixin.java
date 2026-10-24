@@ -19,7 +19,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class ScreenMixin {
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void onKeyPressed(KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
-        // Block keyboard input while a menu transition is in flight.
+        // Swallow keys while a menu transition is playing (short window) so a
+        // fast double-tap cannot leak onto the incoming screen.
         if (ScreenTransitions.isBlockingInput()) {
             cir.setReturnValue(true);
             return;
@@ -41,10 +42,9 @@ public abstract class ScreenMixin {
     }
 
     // The game renders the active screen through renderWithTooltipAndSubtitles
-    // (background + widgets + deferred elements). Hooking the wrapper (not render)
-    // means the transition transform covers the background too, and outgoing
-    // screens are rendered through the same entry point.
-    @Inject(method = "renderWithTooltipAndSubtitles", at = @At("HEAD"), cancellable = true)
+    // (background + widgets + deferred). During a transition the ACTIVE screen
+    // gets a pose transform around this wrapper — nothing else is re-rendered.
+    @Inject(method = "renderWithTooltipAndSubtitles", at = @At("HEAD"))
     private void reimaginedIntro$transitionRenderHead(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         ScreenTransitions.onRenderHead((Screen) (Object) this, guiGraphics, mouseX, mouseY, partialTick, ci);
     }
