@@ -69,6 +69,7 @@ public final class ScreenTransitions {
     // --- FLUID state ---
     /** Set between the HEAD and TAIL of a vanilla setScreen that should morph. */
     private static boolean fluidArmed;
+    private static boolean morphLogged;
     /** Source button rects of the outgoing screen, reading order. */
     private static List<int[]> morphSources;
     /** Target widgets of the incoming screen (identity = render gate). */
@@ -111,7 +112,11 @@ public final class ScreenTransitions {
 
         if (t == Type.FLUID) {
             Screen current = MinecraftAccessorBridge.getActiveScreen();
-            if ((hasSelectionList(current) || hasSelectionList(next)) && videoAvailable()) {
+            boolean outList = hasSelectionList(current);
+            boolean inList = hasSelectionList(next);
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] transition: {} -> {} (outList={} inList={} video={})",
+                current.getClass().getSimpleName(), next.getClass().getSimpleName(), outList, inList, videoAvailable());
+            if ((outList || inList) && videoAvailable()) {
                 // List screen leaving: wipe it out under the video cover first,
                 // the incoming side is decided at the swap point.
                 pending = next;
@@ -124,7 +129,10 @@ public final class ScreenTransitions {
             }
             // Button screen leaving: swap instantly; the TAIL hook (widgets are
             // initialized by then) captures the target layout and starts the morph.
-            morphSources = collectButtons(current).stream()
+            List<AbstractWidget> srcButtons = collectButtons(current);
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] morph armed: {} source buttons from {}",
+                srcButtons.size(), current.getClass().getSimpleName());
+            morphSources = srcButtons.stream()
                 .map(w -> new int[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()})
                 .collect(Collectors.toList());
             fluidArmed = true;
@@ -156,7 +164,11 @@ public final class ScreenTransitions {
         if (incoming == null) return;
 
         long d = configuredDuration();
-        if (hasSelectionList(incoming)) {
+        boolean incomingList = hasSelectionList(incoming);
+        List<AbstractWidget> targets = collectButtons(incoming);
+        ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] phase B setup: incoming={} list={} targets={} sources={}",
+            incoming.getClass().getSimpleName(), incomingList, targets.size(), morphSources == null ? 0 : morphSources.size());
+        if (incomingList) {
             if (videoAvailable()) {
                 // Reveal the list screen top-to-bottom over the shared background.
                 startPhaseB(d, true);
@@ -166,7 +178,6 @@ public final class ScreenTransitions {
             return;
         }
 
-        List<AbstractWidget> targets = collectButtons(incoming);
         if (morphSources != null && !morphSources.isEmpty() && !targets.isEmpty()) {
             morphTargets = targets;
             hiddenWidgets.addAll(targets);
@@ -228,7 +239,9 @@ public final class ScreenTransitions {
 
     /** Widget render gate (WidgetGateMixin): suppresses the real buttons during a morph. */
     public static boolean isWidgetHidden(AbstractWidget widget) {
-        return phase != Phase.IDLE && !hiddenWidgets.isEmpty() && hiddenWidgets.contains(widget);
+        if (phase == Phase.IDLE || hiddenWidgets.isEmpty() || !hiddenWidgets.contains(widget)) return false;
+        // Safety fuse: never keep widgets hidden past the animation window.
+        return Util.getMillis() - startMs <= durationMs + 500L;
     }
 
     /**
@@ -414,6 +427,7 @@ public final class ScreenTransitions {
         curtainAlpha = 0.0f;
         fluidArmed = false;
         fluidWipe = false;
+        morphLogged = false;
         clearMorph();
     }
 
@@ -507,6 +521,10 @@ public final class ScreenTransitions {
      * per-button stagger. Target labels fade in as they arrive.
      */
     private static void drawMorph(GuiGraphics g, float e) {
+        if (!morphLogged) {
+            morphLogged = true;
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] morph rendering: {} targets", morphTargets.size());
+        }
         int m = morphSources.size();
         int n = morphTargets.size();
         if (m == 0 || n == 0) return;
