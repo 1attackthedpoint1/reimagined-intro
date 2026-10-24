@@ -1,11 +1,18 @@
 pluginManagement {
     repositories {
-        gradlePluginPortal()
-        mavenCentral()
+        // 1.21.11 branch: local mirror of maven.fabricmc.net (pre-seeded artifacts).
+        // The upstream CDN is heavily throttled from this network; everything the
+        // plugin classpath needs is either in the Gradle cache or in this mirror.
+        maven {
+            name = 'LocalFabricMirror'
+            url = file('/home/z/my-project/vulkan-compat/maven-mirror').toURI()
+        }
         maven {
             name = 'Fabric'
             url = 'https://maven.fabricmc.net/'
         }
+        gradlePluginPortal()
+        mavenCentral()
         maven {
             name = 'NeoForge'
             url = 'https://maven.neoforged.net/releases'
@@ -21,4 +28,6 @@ rootProject.name = 'reimagined-intro'
 includeBuild('build-logic')
 include('common')
 include('fabric')
-include('neoforge')
+// NeoForge module excluded on this 1.21.11 branch: VulkanMod is Fabric-only and
+// this port targets Fabric 1.21.11 + VulkanMod 0.6.8+1.21.11. Re-enable on master (26.3).
+// include('neoforge')

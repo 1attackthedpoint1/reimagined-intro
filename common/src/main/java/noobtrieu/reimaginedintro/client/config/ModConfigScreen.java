@@ -1,7 +1,7 @@
 package noobtrieu.reimaginedintro.client.config;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -71,7 +71,7 @@ public class ModConfigScreen extends Screen {
             Button.builder(Component.literal("Preview Intro Sequence"), b -> {
                 ModConfig.save();
                 IntroManager.resetForReplay();
-                Minecraft.getInstance().gui.setScreen(new IntroScreen());
+                Minecraft.getInstance().setScreen(new IntroScreen());
             }).bounds(centerX - 100, startY + 98, 200, 20).build()
         );
 
@@ -84,17 +84,17 @@ public class ModConfigScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick);
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         // Render Title
         int titleWidth = this.font.width(this.title);
-        guiGraphics.text(this.font, this.title, this.width / 2 - titleWidth / 2, 20, 0xFFFFFFFF);
+        guiGraphics.drawString(this.font, this.title, this.width / 2 - titleWidth / 2, 20, 0xFFFFFFFF);
     }
 
     @Override
     public void onClose() {
         ModConfig.save();
-        Minecraft.getInstance().gui.setScreen(this.parent);
+        Minecraft.getInstance().setScreen(this.parent);
     }
 }

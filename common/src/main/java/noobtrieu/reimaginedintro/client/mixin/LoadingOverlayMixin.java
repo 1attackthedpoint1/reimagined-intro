@@ -1,8 +1,8 @@
 package noobtrieu.reimaginedintro.client.mixin;
 
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.LoadingOverlay;
 import net.minecraft.resources.Identifier;
 import noobtrieu.reimaginedintro.client.config.ModConfig;
@@ -12,14 +12,14 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(LoadingOverlay.class)
 public abstract class LoadingOverlayMixin {
     @WrapWithCondition(
-        method = "extractRenderState",
+        method = "render",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blit(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIFFIIIIIII)V"
+            target = "Lnet/minecraft/client/gui/GuiGraphics;blit(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIFFIIIIIII)V"
         )
     )
     private boolean shouldRenderMojangLogo(
-        GuiGraphicsExtractor instance,
+        GuiGraphics instance,
         RenderPipeline pipeline,
         Identifier texture,
         int x0,

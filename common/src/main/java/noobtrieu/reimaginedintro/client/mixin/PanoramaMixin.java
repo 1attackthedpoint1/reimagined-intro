@@ -1,26 +1,26 @@
 package noobtrieu.reimaginedintro.client.mixin;
 
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.Panorama;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.PanoramaRenderer;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-@Mixin(Panorama.class)
+@Mixin(PanoramaRenderer.class)
 public class PanoramaMixin {
     @Redirect(
-        method = "extractRenderState",
+        method = "render",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blit(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIFFIIIIII)V"
+            target = "Lnet/minecraft/client/gui/GuiGraphics;blit(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIFFIIIIII)V"
         )
     )
     private void fillPanoramaOverlay(
-        GuiGraphicsExtractor guiGraphics,
+        GuiGraphics guiGraphics,
         RenderPipeline pipeline,
         Identifier texture,
         int x,

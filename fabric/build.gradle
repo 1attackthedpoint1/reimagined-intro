@@ -1,22 +1,57 @@
 plugins {
     id 'multiloader-loader'
-    id 'net.fabricmc.fabric-loom'
+    // 'fabric-loom' (short id) = LoomGradlePlugin (remapping); see note in root build.gradle
+    id 'fabric-loom'
 }
 
 repositories {
+    // 1.21.11 branch: serve net.fabricmc + com.terraformersmc groups from the local
+    // mirror exclusively (upstream CDNs are heavily throttled from this network).
+    // Everything else falls through to the repositories below and the
+    // loom-injected ones (Mojang libraries, maven central).
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'LocalFabricMirror'
+                url = file('/home/z/my-project/vulkan-compat/maven-mirror').toURI()
+            }
+        }
+        filter {
+            includeGroup 'net.fabricmc'
+            includeGroup 'com.terraformersmc'
+        }
+    }
     maven {
         name = "TerraformersMC"
         url = "https://maven.terraformersmc.com/releases"
     }
+    mavenCentral()
 }
 
 dependencies {
     minecraft("com.mojang:minecraft:${minecraft_version}")
+    // 1.21.11 build: explicit official Mojang mappings (v3 sources are written against them)
+    mappings loom.officialMojangMappings()
     implementation("net.fabricmc:fabric-loader:${fabric_loader_version}")
-    implementation("net.fabricmc.fabric-api:fabric-api:${fabric_version}")
 
+    // The mod code never touches fabric-api APIs (verified by grep over the whole
+    // codebase) — it was only pulled transitively on 26.3. Kept out to slim the
+    // dependency resolution on the throttled network.
+
+    // MixinExtras annotation processor (refmap entries for @WrapWithCondition).
+    // Loom auto-wires the sponge-mixin AP; MixinExtras' AP must be declared
+    // explicitly. Resolved from maven central.
+    // MixinExtras annotations at compile time (refmap itself is generated at
+    // remapJar time by loom's MixinRefmapService — no legacy mixin AP needed on
+    // loom 1.13+, which is also why the sponge-mixin AP must NOT be registered:
+    // without fabric's obfuscation service it fails with "Unable to locate
+    // obfuscation mapping" errors).
+    compileOnly('io.github.llamalad7:mixinextras-common:0.5.3')
+    compileOnly('net.fabricmc:sponge-mixin:0.17.3+mixin.0.8.7')
     compileOnly("org.lwjgl:lwjgl-stb:3.3.3")
-    compileOnly("com.terraformersmc:modmenu:20.0.1")
+    // modmenu is an intermediary-remapped mod: loom's modCompileOnly remaps it
+    // to the current (mojmap) namespace so its Screen references resolve.
+    modCompileOnly("com.terraformersmc:modmenu:17.0.1")
 }
 
 loom {

@@ -12,12 +12,9 @@ configurations {
 }
 
 dependencies {
-    compileOnly(project(':common')) {
-        def loaderAttribute = Attribute.of('io.github.mcgradleconventions.loader', String)
-        attributes {
-            attribute(loaderAttribute, 'common')
-        }
-    }
+    // 1.21.11 branch: the ':common' project dependency is removed. Common sources and
+    // resources are consumed directly below (commonJava/commonResources), so common's
+    // own jar (and its obsolete NeoForge-provided Minecraft classpath) is never built.
     commonJava(project(path: ':common', configuration: 'commonJava'))
     commonResources(project(path: ':common', configuration: 'commonResources'))
 }

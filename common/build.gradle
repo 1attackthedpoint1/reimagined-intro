@@ -1,17 +1,13 @@
 plugins {
     id 'multiloader-common'
-    id 'net.neoforged.moddev'
+    // NeoForge moddev plugin removed on the 1.21.11 Fabric-only branch.
+    // The common project is a pure source/resources exporter here: the fabric project
+    // compiles these sources against its own loom-provided Minecraft classpath
+    // (see build-logic/multiloader-loader.gradle -> source(configurations.commonJava)).
 }
 
-neoForge {
-    neoFormVersion = neo_form_version
-}
-
-dependencies {
-    compileOnly('net.fabricmc:sponge-mixin:0.17.3+mixin.0.8.7')
-    compileOnly(annotationProcessor('io.github.llamalad7:mixinextras-common:0.5.3'))
-    compileOnly('org.lwjgl:lwjgl-stb:3.3.3')
-}
+// No standalone compile dependencies on this branch: common's own compileJava is never
+// executed (nothing depends on it once :fabric consumes commonJava/commonResources only).
 
 configurations {
     commonJava {

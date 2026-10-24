@@ -2,7 +2,7 @@ package noobtrieu.reimaginedintro.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
@@ -17,17 +17,17 @@ public class IntroScreen extends Screen {
     protected void init() {
         super.init();
         // Clear any remaining red loading overlay so it doesn't flash over the intro
-        Minecraft.getInstance().gui.setOverlay(null);
+        Minecraft.getInstance().setOverlay(null);
         IntroManager.startIntro();
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
-        // Suppress default background and panorama overlay extraction
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // Suppress default background and panorama overlay rendering
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         long elapsed = IntroManager.getElapsedMs();
         boolean finished = elapsed >= FrameStreamer.INTRO_TOTAL_DURATION_MS;
         long renderElapsed = finished ? FrameStreamer.INTRO_TOTAL_DURATION_MS : elapsed;
@@ -44,20 +44,18 @@ public class IntroScreen extends Screen {
         int renderWidth, renderHeight, x, y;
 
         if (screenAspect > targetAspect) {
-            // Screen is wider than 16:9 (e.g. 21:9 ultrawide) -> match width, crop top/bottom
             renderWidth = this.width;
             renderHeight = (int) (this.width / targetAspect);
             x = 0;
             y = (this.height - renderHeight) / 2;
         } else {
-            // Screen is taller than 16:9 (e.g. 16:10, 4:3, windowed) -> match height, crop left/right
             renderHeight = this.height;
             renderWidth = (int) (this.height * targetAspect);
             x = (this.width - renderWidth) / 2;
             y = 0;
         }
 
-        // Correct Minecraft 26.3 blit parameters: (id, x0, y0, x1, y1, u0, u1, v0, v1)
+        // Full-screen blit: (id, x0, y0, x1, y1, u0, u1, v0, v1)
         guiGraphics.blit(
             FrameStreamer.getTextureId(),
             x,
@@ -83,7 +81,7 @@ public class IntroScreen extends Screen {
         if (ModConfig.get().showSkipPrompt && elapsed > 1500) {
             Component skipPrompt = Component.literal("ESC to skip");
             int textWidth = this.font.width(skipPrompt);
-            guiGraphics.text(this.font, skipPrompt, this.width - textWidth - 16, this.height - 20, 0x66FFFFFF);
+            guiGraphics.drawString(this.font, skipPrompt, this.width - textWidth - 16, this.height - 20, 0x66FFFFFF);
         }
 
         if (finished) {

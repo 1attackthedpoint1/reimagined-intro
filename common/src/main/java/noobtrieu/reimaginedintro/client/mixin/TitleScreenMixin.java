@@ -3,7 +3,7 @@ package noobtrieu.reimaginedintro.client.mixin;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.SplashRenderer;
 import net.minecraft.client.gui.screens.Screen;
@@ -36,7 +36,7 @@ public abstract class TitleScreenMixin extends Screen {
         if (!IntroManager.hasPlayed()) {
             IntroManager.setHasPlayed(true);
             if (ModConfig.get().enableIntro) {
-                Minecraft.getInstance().gui.setScreen(new IntroScreen());
+                Minecraft.getInstance().setScreen(new IntroScreen());
                 ci.cancel();
             }
         }
@@ -68,8 +68,8 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
-    @Inject(method = "extractRenderState", at = @At("HEAD"))
-    private void eliminateFadeInDelay(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    @Inject(method = "render", at = @At("HEAD"))
+    private void eliminateFadeInDelay(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (this.fading && this.fadeInStart == 0L) {
             // Vanilla TitleScreen hardcodes a 1000ms dead zone where alpha is clamped to 0.0.
             // By pre-advancing fadeInStart by 1000ms, alpha immediately begins rising from 0.0 on frame 1,
@@ -79,37 +79,37 @@ public abstract class TitleScreenMixin extends Screen {
     }
 
     @WrapWithCondition(
-        method = "extractRenderState",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/LogoRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IF)V"),
+        method = "render",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"),
         require = 0
     )
-    private boolean shouldRenderLogo(LogoRenderer instance, GuiGraphicsExtractor guiGraphics, int width, float alpha) {
+    private boolean shouldRenderLogo(LogoRenderer instance, GuiGraphics guiGraphics, int width, float alpha) {
         // Suppress Minecraft logo when custom loop is enabled
         return !ModConfig.get().enableTitleScreenLoop;
     }
 
     @WrapWithCondition(
-        method = "extractRenderState",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/SplashRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;ILnet/minecraft/client/gui/Font;F)V"),
+        method = "render",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/SplashRenderer;render(Lnet/minecraft/client/gui/GuiGraphics;ILnet/minecraft/client/gui/Font;F)V"),
         require = 0
     )
-    private boolean shouldRenderSplash(SplashRenderer instance, GuiGraphicsExtractor guiGraphics, int width, Font font, float alpha) {
+    private boolean shouldRenderSplash(SplashRenderer instance, GuiGraphics guiGraphics, int width, Font font, float alpha) {
         // Suppress splash text when custom loop is enabled
         return !ModConfig.get().enableTitleScreenLoop;
     }
 
     @WrapWithCondition(
-        method = "extractRenderState",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;text(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"),
+        method = "render",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"),
         require = 0
     )
-    private boolean shouldRenderVersionText(GuiGraphicsExtractor instance, Font font, String text, int x, int y, int color) {
+    private boolean shouldRenderVersionText(GuiGraphics instance, Font font, String text, int x, int y, int color) {
         // Suppress version info text when custom loop is enabled (Vanilla / Fabric)
         return !ModConfig.get().enableTitleScreenLoop;
     }
 
     @WrapWithCondition(
-        method = "extractRenderState",
+        method = "render",
         at = @At(value = "INVOKE", target = "Lnet/neoforged/neoforge/internal/BrandingControl;forEachLine(ZZLjava/util/function/BiConsumer;)V"),
         require = 0
     )
@@ -119,7 +119,7 @@ public abstract class TitleScreenMixin extends Screen {
     }
 
     @WrapWithCondition(
-        method = "extractRenderState",
+        method = "render",
         at = @At(value = "INVOKE", target = "Lnet/neoforged/neoforge/internal/BrandingControl;forEachAboveCopyrightLine(Ljava/util/function/BiConsumer;)V"),
         require = 0
     )
@@ -129,10 +129,10 @@ public abstract class TitleScreenMixin extends Screen {
     }
 
     @Inject(
-        method = "extractRenderState",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/TitleScreen;extractPanorama(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V", shift = At.Shift.AFTER)
+        method = "render",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/TitleScreen;renderPanorama(Lnet/minecraft/client/gui/GuiGraphics;F)V", shift = At.Shift.AFTER)
     )
-    private void fadePanoramaFromIntroFrame(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    private void fadePanoramaFromIntroFrame(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!ModConfig.get().enableTitleScreenLoop && this.fading) {
             float f1 = (float) (Util.getMillis() - this.fadeInStart) / 2000.0F;
             float f = Math.clamp(Mth.clampedMap(f1, 0.5F, 1.0F, 0.0F, 1.0F), 0.0F, 1.0F);
@@ -181,10 +181,10 @@ public abstract class TitleScreenMixin extends Screen {
     }
 
     @Inject(
-        method = "extractRenderState",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+        method = "render",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
     )
-    private void renderCustomBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    private void renderCustomBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!ModConfig.get().enableTitleScreenLoop) {
             return;
         }
@@ -212,7 +212,7 @@ public abstract class TitleScreenMixin extends Screen {
             y = 0;
         }
 
-        // Correct Minecraft 26.3 blit parameters: (id, x0, y0, x1, y1, u0, u1, v0, v1)
+        // Correct Minecraft 1.21.11 blit parameters: (id, x0, y0, x1, y1, u0, u1, v0, v1)
         guiGraphics.blit(
             FrameStreamer.getTextureId(),
             x,

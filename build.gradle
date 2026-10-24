@@ -1,4 +1,10 @@
 plugins {
-    id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
-    id 'net.neoforged.moddev' version "${moddev_version}" apply false
+    // NOTE: 'net.fabricmc.fabric-loom' resolves to LoomNoRemapGradlePlugin in loom 1.14+
+    // (for the non-obfuscated 26.x environments). The remapping plugin used by every
+    // 1.21.x-era mod is the short id 'fabric-loom' (= LoomGradlePlugin), which is what
+    // VulkanMod 0.6.8+1.21.11 builds with. Mojang mappings require the remap plugin.
+    id 'fabric-loom' version "${loom_version}" apply false
+    // NeoForge plugin excluded on this 1.21.11 Fabric-only branch: avoids pulling the
+    // entire moddev-gradle / NeoForm dependency tree for a module that is not built.
+    // id 'net.neoforged.moddev' version "${moddev_version}" apply false
 }

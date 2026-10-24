@@ -19,10 +19,10 @@ public abstract class ScreenMixin {
         if ((Object) this instanceof TitleScreen) {
             if (event.key() == InputConstants.KEY_F6) {
                 IntroManager.resetForReplay();
-                Minecraft.getInstance().gui.setScreen(new IntroScreen());
+                Minecraft.getInstance().setScreen(new IntroScreen());
                 cir.setReturnValue(true);
             } else if (event.key() == InputConstants.KEY_F7) {
-                Minecraft.getInstance().gui.setScreen(new noobtrieu.reimaginedintro.client.config.ModConfigScreen((Screen) (Object) this));
+                Minecraft.getInstance().setScreen(new noobtrieu.reimaginedintro.client.config.ModConfigScreen((Screen) (Object) this));
                 cir.setReturnValue(true);
             } else if (event.key() == InputConstants.KEY_ESCAPE && noobtrieu.reimaginedintro.client.IntroSoundController.isPlaying()) {
                 noobtrieu.reimaginedintro.client.IntroSoundController.stop();
