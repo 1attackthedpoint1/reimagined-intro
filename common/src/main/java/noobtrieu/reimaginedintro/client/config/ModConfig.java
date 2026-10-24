@@ -16,6 +16,10 @@ public class ModConfig {
     public boolean enableTitleScreenLoop = true;
     public boolean showSkipPrompt = true;
     public boolean ignoreLegacyWarning = false;
+    /** Menu transition type; see ScreenTransitions.Type (SLIDE, SLIDE_UP, COVER, FADE, ZOOM, OFF). */
+    public String menuTransition = "SLIDE";
+    /** Menu transition duration in milliseconds (50-1500, clamped at runtime). */
+    public int menuTransitionDurationMs = 300;
 
     private static ModConfig INSTANCE;
     private static final Path CONFIG_FILE = Services.PLATFORM.getConfigDir().resolve("reimagined-intro.json");

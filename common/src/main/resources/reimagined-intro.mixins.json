@@ -6,7 +6,9 @@
                 "TitleScreenMixin",
                 "ScreenMixin",
                 "PanoramaMixin",
-                "LoadingOverlayMixin"
+                "LoadingOverlayMixin",
+                "MinecraftMixin",
+                "MouseHandlerMixin"
         ],
         "injectors": {
                 "defaultRequire": 1

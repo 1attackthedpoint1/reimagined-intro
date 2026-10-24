@@ -10,9 +10,21 @@ import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import noobtrieu.reimaginedintro.client.IntroManager;
 import noobtrieu.reimaginedintro.client.IntroScreen;
+import noobtrieu.reimaginedintro.client.transition.ScreenTransitions;
 
 public class ModConfigScreen extends Screen {
     private final Screen parent;
+
+    private static Component transitionLabel(ScreenTransitions.Type type) {
+        return switch (type) {
+            case SLIDE -> Component.literal("Slide");
+            case SLIDE_UP -> Component.literal("Slide Up");
+            case COVER -> Component.literal("Cover");
+            case FADE -> Component.literal("Fade");
+            case ZOOM -> Component.literal("Zoom");
+            case OFF -> Component.literal("Off");
+        };
+    }
 
     public ModConfigScreen(Screen parent) {
         super(Component.literal("Reimagined Intro Options"));
@@ -22,7 +34,7 @@ public class ModConfigScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int startY = Math.max(40, this.height / 2 - 70);
+        int startY = Math.max(24, this.height / 2 - 105);
 
         // 1. Startup Intro Toggle
         this.addRenderableWidget(
@@ -48,8 +60,36 @@ public class ModConfigScreen extends Screen {
                 })
         );
 
-        // 4. Volume Slider
-        this.addRenderableWidget(new AbstractSliderButton(centerX - 100, startY + 72, 200, 20, Component.empty(), ModConfig.get().introVolume) {
+        // 4. Menu Transition Type
+        this.addRenderableWidget(
+            CycleButton.<ScreenTransitions.Type>builder(ModConfigScreen::transitionLabel, ScreenTransitions.currentType())
+                .withValues(ScreenTransitions.Type.values())
+                .create(centerX - 100, startY + 72, 200, 20, Component.literal("Menu Transition"), (btn, val) -> {
+                    ModConfig.get().menuTransition = val.name();
+                })
+        );
+
+        // 5. Menu Transition Duration Slider (100-600 ms)
+        this.addRenderableWidget(new AbstractSliderButton(centerX - 100, startY + 96, 200, 20, Component.empty(),
+                (Math.max(100, Math.min(600, ModConfig.get().menuTransitionDurationMs)) - 100) / 500.0) {
+            {
+                updateMessage();
+            }
+
+            @Override
+            protected void updateMessage() {
+                int ms = (int) Math.round(this.value * 500.0 + 100.0);
+                setMessage(Component.literal("Transition Speed: " + ms + "ms"));
+            }
+
+            @Override
+            protected void applyValue() {
+                ModConfig.get().menuTransitionDurationMs = (int) Math.round(this.value * 500.0 + 100.0);
+            }
+        });
+
+        // 6. Volume Slider
+        this.addRenderableWidget(new AbstractSliderButton(centerX - 100, startY + 120, 200, 20, Component.empty(), ModConfig.get().introVolume) {
             {
                 updateMessage();
             }
@@ -66,13 +106,13 @@ public class ModConfigScreen extends Screen {
             }
         });
 
-        // 5. Test / Preview Intro button
+        // 7. Test / Preview Intro button
         this.addRenderableWidget(
             Button.builder(Component.literal("Preview Intro Sequence"), b -> {
                 ModConfig.save();
                 IntroManager.resetForReplay();
                 Minecraft.getInstance().setScreen(new IntroScreen());
-            }).bounds(centerX - 100, startY + 98, 200, 20).build()
+            }).bounds(centerX - 100, startY + 144, 200, 20).build()
         );
 
         // 6. Done Button

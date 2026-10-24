@@ -5,6 +5,27 @@
 基于官方 v3.0.0（MC 26.3）源码移植到 **Minecraft 1.21.11 + Fabric** 的版本，
 渲染路径专门为 **VulkanMod 0.6.8+1.21.11** 的兼容层设计。
 
+## v3.2.0 新增：菜单过渡动画
+
+在菜单之间切换（如主菜单 → 单人游戏存档列表）时播放过渡动画：
+
+- **Slide** 横向推入（默认）：旧屏左移、新屏自右侧滑入
+- **Slide Up** 纵向推入：旧屏上移、新屏自底部滑入
+- **Cover** 覆盖：旧屏静止、新屏自右侧盖上来
+- **Fade** 穿黑淡入淡出（iOS 风格，分两段，无逐控件 alpha 需求）
+- **Zoom** 纵深缩放：旧屏微缩后退、新屏自 92% 放大至全屏
+- **Off** 关闭
+
+速度可在 100–600ms 之间调节（配置屏滑条）。动画期间屏蔽鼠标/键盘输入，
+防止快速双击误触新界面。开场动画（IntroScreen）进出的切换保持原有的
+专属过渡效果，不受此功能影响。
+
+实现方式与 VulkanMod 的兼容性：动画仅使用 vanilla GUI 管线的
+`GuiGraphics` 位姿变换（JOML Matrix3x2fStack 的 translate/scale）、
+`fill`（黑色幕布/衬底）与屏幕自身的 `renderWithTooltipAndSubtitles` 调用——
+**零 GL 调用、零自建 Framebuffer、零逐像素 alpha**，全部走 VulkanMod
+完整接管的路径（与帧动画上传同一安全等级）。
+
 ## 为什么官方 1.21.11 版（v2.1.0）与 VulkanMod 不兼容
 
 官方 v2.1.0（1.21.11）依赖 **FancyMenu + Drippy Loading Screen + WaterMedia**，
