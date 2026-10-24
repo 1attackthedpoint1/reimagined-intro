@@ -17,6 +17,7 @@ public class ModConfigScreen extends Screen {
 
     private static Component transitionLabel(ScreenTransitions.Type type) {
         return switch (type) {
+            case FLUID -> Component.literal("Fluid");
             case SLIDE -> Component.literal("Slide");
             case SLIDE_UP -> Component.literal("Slide Up");
             case COVER -> Component.literal("Cover");

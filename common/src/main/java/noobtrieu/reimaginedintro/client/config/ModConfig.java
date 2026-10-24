@@ -17,7 +17,7 @@ public class ModConfig {
     public boolean showSkipPrompt = true;
     public boolean ignoreLegacyWarning = false;
     /** Menu transition type; see ScreenTransitions.Type (SLIDE, SLIDE_UP, COVER, FADE, ZOOM, OFF). */
-    public String menuTransition = "SLIDE";
+    public String menuTransition = "FLUID";
     /** Menu transition duration in milliseconds (50-1500, clamped at runtime). */
     public int menuTransitionDurationMs = 300;
     /** Render sub-menu backgrounds (Singleplayer/Multiplayer/Options/...) with the

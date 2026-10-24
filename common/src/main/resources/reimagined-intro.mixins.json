@@ -11,7 +11,8 @@
                 "MouseHandlerMixin",
                 "MenuBackgroundMixin",
                 "GlassButtonsMixin",
-                "GlassSliderMixin"
+                "GlassSliderMixin",
+		"WidgetGateMixin"
         ],
         "injectors": {
                 "defaultRequire": 1

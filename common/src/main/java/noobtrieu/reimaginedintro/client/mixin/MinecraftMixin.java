@@ -13,6 +13,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * rendering as the ACTIVE screen (normal vanilla path) while it animates out,
  * then perform the real swap and animate the incoming screen in. No screen is
  * ever re-rendered while inactive.
+ *
+ * The TAIL hook arms FLUID morphs: by the time setScreen returns, the incoming
+ * screen is initialized, so its widget layout can be captured for the morph.
  */
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
@@ -21,5 +24,10 @@ public class MinecraftMixin {
         if (ScreenTransitions.onSetScreen(newScreen)) {
             ci.cancel();
         }
+    }
+
+    @Inject(method = "setScreen", at = @At("TAIL"))
+    private void reimaginedIntro$afterSetScreen(Screen newScreen, CallbackInfo ci) {
+        ScreenTransitions.onAfterSetScreen();
     }
 }

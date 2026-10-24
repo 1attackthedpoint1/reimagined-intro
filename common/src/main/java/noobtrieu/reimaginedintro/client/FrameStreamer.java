@@ -188,6 +188,11 @@ public class FrameStreamer {
         return (isLoop ? "l_" : "i_") + frame;
     }
 
+    /** True when the loop texture exists and is safe to blit (FLUID wipes rely on this). */
+    public static boolean isReady() {
+        return initialized && dynamicTexture != null;
+    }
+
     public static Identifier getTextureId() {
         return TEXTURE_ID;
     }
