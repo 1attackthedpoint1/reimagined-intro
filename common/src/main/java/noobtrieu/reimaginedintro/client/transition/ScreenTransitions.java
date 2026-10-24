@@ -170,7 +170,7 @@ public final class ScreenTransitions {
         if (morphSources != null && !morphSources.isEmpty() && !targets.isEmpty()) {
             morphTargets = targets;
             hiddenWidgets.addAll(targets);
-            startPhaseB(Math.round(d * 1.3f), false);
+            startPhaseB(Math.round(d * 2.2f), false);
             return;
         }
 
@@ -300,14 +300,17 @@ public final class ScreenTransitions {
     private static boolean posePushed;
     private static float curtainAlpha;
 
-    /** Soft glowing edge for the wipe line (pure fill stack, VulkanMod-safe). */
+    /**
+     * Soft fade-out bands below the reveal boundary: the incoming content fades
+     * into the background video with NO visible line — a pure top-down reveal.
+     * (Pure fill stack, VulkanMod-safe.)
+     */
     private static void drawWipeEdge(GuiGraphics g, int w, int edge) {
         if (edge <= 0) return;
-        g.fill(0, edge - 6, w, edge - 3, 0x10FFFFFF);
-        g.fill(0, edge - 3, w, edge - 1, 0x26FFFFFF);
-        g.fill(0, edge - 1, w, edge + 1, 0x87FFFFFF); // bright core
-        g.fill(0, edge + 1, w, edge + 3, 0x26FFFFFF);
-        g.fill(0, edge + 3, w, edge + 6, 0x10FFFFFF);
+        g.fill(0, edge, w, edge + 5, 0xB4000000);
+        g.fill(0, edge + 5, w, edge + 11, 0x87000000);
+        g.fill(0, edge + 11, w, edge + 18, 0x5A000000);
+        g.fill(0, edge + 18, w, edge + 26, 0x30000000);
     }
 
     private static void applyOutgoing(GuiGraphics g, float w, float h, float e) {
@@ -553,9 +556,16 @@ public final class ScreenTransitions {
             float bw = sw + (tw - sw) * ej;
             float bh = sh + (th - sh) * ej;
 
+            // Arc: gentle lift mid-flight so the travel is clearly readable.
+            cy -= Math.sin(pj * (float) Math.PI) * 14.0f;
+            // Breathing scale: dip slightly then overshoot back (elastic settle).
+            float squash = 1.0f - 0.22f * (float) Math.sin(pj * (float) Math.PI);
+            // Alpha valley: slightly translucent mid-flight, solid on arrival.
+            float fly = 1.0f - 0.28f * (float) Math.sin(pj * (float) Math.PI);
+
             GlassRendering.drawButtonPanel(
-                g, Math.round(cx - bw / 2.0f), Math.round(cy - bh / 2.0f),
-                Math.round(bw), Math.round(bh), true, false, 1.0f
+                g, Math.round(cx - bw * squash / 2.0f), Math.round(cy - bh * squash / 2.0f),
+                Math.round(bw * squash), Math.round(bh * squash), true, false, fly
             );
 
             if (pj > 0.35f && target.getMessage() != null) {
