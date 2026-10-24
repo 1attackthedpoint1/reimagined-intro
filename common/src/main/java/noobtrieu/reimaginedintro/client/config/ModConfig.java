@@ -23,6 +23,13 @@ public class ModConfig {
     /** Render sub-menu backgrounds (Singleplayer/Multiplayer/Options/...) with the
      *  same background the title screen uses, instead of vanilla's dark scrim. */
     public boolean unifyMenuBackground = true;
+    /** Hide every piece of vanilla branding on the title screen: Minecraft logo,
+     *  splash text (incl. social-media splashes), version string, copyright line
+     *  and the Realms notification popup. Independent of the title screen loop. */
+    public boolean hideVanillaBranding = true;
+    /** Frosted-glass rounded styling for all menu buttons and sliders
+     *  (in-game UI is never restyled). */
+    public boolean glassButtons = true;
 
     private static ModConfig INSTANCE;
     private static final Path CONFIG_FILE = Services.PLATFORM.getConfigDir().resolve("reimagined-intro.json");

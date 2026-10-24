@@ -9,7 +9,9 @@
                 "LoadingOverlayMixin",
                 "MinecraftMixin",
                 "MouseHandlerMixin",
-                "MenuBackgroundMixin"
+                "MenuBackgroundMixin",
+                "GlassButtonsMixin",
+                "GlassSliderMixin"
         ],
         "injectors": {
                 "defaultRequire": 1

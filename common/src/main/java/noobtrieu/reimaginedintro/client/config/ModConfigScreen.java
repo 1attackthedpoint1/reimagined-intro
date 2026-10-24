@@ -34,7 +34,8 @@ public class ModConfigScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int startY = Math.max(24, this.height / 2 - 105);
+        int spacing = this.height < 320 ? 21 : 24;
+        int startY = Math.max(10, (this.height - (8 * spacing + 72)) / 2);
 
         // 1. Startup Intro Toggle
         this.addRenderableWidget(
@@ -47,7 +48,7 @@ public class ModConfigScreen extends Screen {
         // 2. Title Screen Loop Toggle
         this.addRenderableWidget(
             CycleButton.booleanBuilder(Component.literal("§6Animated"), Component.literal("§7Static"), ModConfig.get().enableTitleScreenLoop)
-                .create(centerX - 100, startY + 24, 200, 20, Component.literal("Title Screen"), (btn, val) -> {
+                .create(centerX - 100, startY + spacing, 200, 20, Component.literal("Title Screen"), (btn, val) -> {
                     ModConfig.get().enableTitleScreenLoop = val;
                 })
         );
@@ -55,7 +56,7 @@ public class ModConfigScreen extends Screen {
         // 3. Skip Prompt Toggle
         this.addRenderableWidget(
             CycleButton.booleanBuilder(Component.literal("§aYes"), Component.literal("§cNo"), ModConfig.get().showSkipPrompt)
-                .create(centerX - 100, startY + 48, 200, 20, Component.literal("Show \"ESC to skip\""), (btn, val) -> {
+                .create(centerX - 100, startY + 2 * spacing, 200, 20, Component.literal("Show \"ESC to skip\""), (btn, val) -> {
                     ModConfig.get().showSkipPrompt = val;
                 })
         );
@@ -64,13 +65,13 @@ public class ModConfigScreen extends Screen {
         this.addRenderableWidget(
             CycleButton.<ScreenTransitions.Type>builder(ModConfigScreen::transitionLabel, ScreenTransitions.currentType())
                 .withValues(ScreenTransitions.Type.values())
-                .create(centerX - 100, startY + 72, 200, 20, Component.literal("Menu Transition"), (btn, val) -> {
+                .create(centerX - 100, startY + 3 * spacing, 200, 20, Component.literal("Menu Transition"), (btn, val) -> {
                     ModConfig.get().menuTransition = val.name();
                 })
         );
 
         // 5. Menu Transition Duration Slider (100-600 ms)
-        this.addRenderableWidget(new AbstractSliderButton(centerX - 100, startY + 96, 200, 20, Component.empty(),
+        this.addRenderableWidget(new AbstractSliderButton(centerX - 100, startY + 4 * spacing, 200, 20, Component.empty(),
                 (Math.max(100, Math.min(600, ModConfig.get().menuTransitionDurationMs)) - 100) / 500.0) {
             {
                 updateMessage();
@@ -89,7 +90,7 @@ public class ModConfigScreen extends Screen {
         });
 
         // 6. Volume Slider
-        this.addRenderableWidget(new AbstractSliderButton(centerX - 100, startY + 120, 200, 20, Component.empty(), ModConfig.get().introVolume) {
+        this.addRenderableWidget(new AbstractSliderButton(centerX - 100, startY + 5 * spacing, 200, 20, Component.empty(), ModConfig.get().introVolume) {
             {
                 updateMessage();
             }
@@ -106,13 +107,29 @@ public class ModConfigScreen extends Screen {
             }
         });
 
-        // 7. Test / Preview Intro button
+        // 7. Hide vanilla branding (logo/splash/version/copyright/Realms promo)
+        this.addRenderableWidget(
+            CycleButton.booleanBuilder(Component.literal("\u00a7aClean"), Component.literal("\u00a77Vanilla"), ModConfig.get().hideVanillaBranding)
+                .create(centerX - 100, startY + 6 * spacing, 200, 20, Component.literal("Hide Minecraft Branding"), (btn, val) -> {
+                    ModConfig.get().hideVanillaBranding = val;
+                })
+        );
+
+        // 8. Frosted-glass buttons
+        this.addRenderableWidget(
+            CycleButton.booleanBuilder(Component.literal("\u00a7bGlass"), Component.literal("\u00a77Classic"), ModConfig.get().glassButtons)
+                .create(centerX - 100, startY + 7 * spacing, 200, 20, Component.literal("Button Style"), (btn, val) -> {
+                    ModConfig.get().glassButtons = val;
+                })
+        );
+
+        // 9. Test / Preview Intro button
         this.addRenderableWidget(
             Button.builder(Component.literal("Preview Intro Sequence"), b -> {
                 ModConfig.save();
                 IntroManager.resetForReplay();
                 Minecraft.getInstance().setScreen(new IntroScreen());
-            }).bounds(centerX - 100, startY + 144, 200, 20).build()
+            }).bounds(centerX - 100, startY + 8 * spacing, 200, 20).build()
         );
 
         // 6. Done Button

@@ -42,9 +42,16 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
+    private static boolean suppressBranding() {
+        ModConfig c = ModConfig.get();
+        // Either the animated loop (which replaces the whole title layout) or the
+        // explicit branding removal switch hides every piece of vanilla branding.
+        return c.enableTitleScreenLoop || c.hideVanillaBranding;
+    }
+
     @Inject(method = "init", at = @At("TAIL"))
     private void removeCopyrightAndFancyMenuWidgets(CallbackInfo ci) {
-        if (ModConfig.get().enableTitleScreenLoop) {
+        if (suppressBranding()) {
             for (net.minecraft.client.gui.components.events.GuiEventListener listener : new java.util.ArrayList<>(this.children())) {
                 if (isSuppressedWidget(listener)) {
                     this.removeWidget(listener);
@@ -85,7 +92,7 @@ public abstract class TitleScreenMixin extends Screen {
     )
     private boolean shouldRenderLogo(LogoRenderer instance, GuiGraphics guiGraphics, int width, float alpha) {
         // Suppress Minecraft logo when custom loop is enabled
-        return !ModConfig.get().enableTitleScreenLoop;
+        return !suppressBranding();
     }
 
     @WrapWithCondition(
@@ -95,7 +102,7 @@ public abstract class TitleScreenMixin extends Screen {
     )
     private boolean shouldRenderSplash(SplashRenderer instance, GuiGraphics guiGraphics, int width, Font font, float alpha) {
         // Suppress splash text when custom loop is enabled
-        return !ModConfig.get().enableTitleScreenLoop;
+        return !suppressBranding();
     }
 
     @WrapWithCondition(
@@ -104,8 +111,18 @@ public abstract class TitleScreenMixin extends Screen {
         require = 0
     )
     private boolean shouldRenderVersionText(GuiGraphics instance, Font font, String text, int x, int y, int color) {
-        // Suppress version info text when custom loop is enabled (Vanilla / Fabric)
-        return !ModConfig.get().enableTitleScreenLoop;
+        // Suppress version info text when branding removal is active (Vanilla / Fabric)
+        return !suppressBranding();
+    }
+
+    @WrapWithCondition(
+        method = "render",
+        at = @At(value = "INVOKE", target = "Lcom/mojang/realmsclient/gui/screens/RealmsNotificationsScreen;render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"),
+        require = 0
+    )
+    private boolean shouldRenderRealmsNotifications(com.mojang.realmsclient.gui.screens.RealmsNotificationsScreen instance, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // Suppress the Realms notification popup (vanilla promo) with branding removal
+        return !suppressBranding();
     }
 
     @WrapWithCondition(
@@ -115,7 +132,7 @@ public abstract class TitleScreenMixin extends Screen {
     )
     private boolean shouldRenderNeoForgeBrandingLine(boolean includeMC, boolean reverse, java.util.function.BiConsumer<?, ?> lineConsumer) {
         // Suppress NeoForge version info text when custom loop is enabled
-        return !ModConfig.get().enableTitleScreenLoop;
+        return !suppressBranding();
     }
 
     @WrapWithCondition(
@@ -125,7 +142,7 @@ public abstract class TitleScreenMixin extends Screen {
     )
     private boolean shouldRenderNeoForgeBrandingAboveCopyright(java.util.function.BiConsumer<?, ?> lineConsumer) {
         // Suppress NeoForge extra branding above copyright when custom loop is enabled
-        return !ModConfig.get().enableTitleScreenLoop;
+        return !suppressBranding();
     }
 
     @Inject(

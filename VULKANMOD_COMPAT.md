@@ -46,6 +46,18 @@ menu_background 黑纱）替换为**主菜单同款背景**：
 游戏内（进入世界后）的界面不受影响；自行 override 了背景的第三方界面不受
 影响。配置项 `unifyMenuBackground`（默认 true）。
 
+## v3.4.0 新增：品牌清理与毛玻璃按钮
+
+- **隐藏 Minecraft 品牌**（`hideVanillaBranding`，默认开）：主菜单上的
+  Minecraft 大标题（logo）、splash 黄色跳字（含 YouTube/Twitter 等社交
+  文案）、左下版本文字、右下版权行（Credits & Attribution 入口）与
+  Realms 通知弹窗全部隐藏，与 Title Screen Loop 开关互相独立
+- **毛玻璃圆角按钮**（`glassButtons`，默认开）：菜单中所有按钮与滑条
+  变为半透明毛玻璃圆角样式（悬停提亮、顶部高光、禁用变暗）。实现为
+  纯 GuiGraphics.fill 圆角拼合，零贴图替换零 GL 调用；游戏内 UI
+  （物品栏、暂停菜单等）不受影响
+- 两个开关都在游戏内配置屏（F7 / ModMenu）可切换
+
 ## 为什么官方 1.21.11 版（v2.1.0）与 VulkanMod 不兼容
 
 官方 v2.1.0（1.21.11）依赖 **FancyMenu + Drippy Loading Screen + WaterMedia**，
