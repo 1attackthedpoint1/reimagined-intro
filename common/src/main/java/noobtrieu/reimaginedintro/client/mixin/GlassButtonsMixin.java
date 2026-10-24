@@ -7,7 +7,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import noobtrieu.reimaginedintro.client.config.ModConfig;
 import noobtrieu.reimaginedintro.client.ui.GlassRendering;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -20,12 +19,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * so replacing it here restyles the whole menu at once. Label text, hover logic,
  * hitboxes and narration stay completely vanilla. In-game screens (world HUD,
  * inventory, etc.) are left untouched.
+ *
+ * Note: isHoveredOrFocused()/isActive() are declared on AbstractWidget — mixins
+ * can only @Shadow members of the direct target class, so this mixin extends
+ * AbstractWidget and calls them as plain virtual methods instead.
  */
 @Mixin(AbstractButton.class)
-public abstract class GlassButtonsMixin {
-    @Shadow protected abstract boolean isHoveredOrFocused();
-    @Shadow public abstract boolean isActive();
-    @Shadow protected float alpha;
+public abstract class GlassButtonsMixin extends AbstractWidget {
+    protected GlassButtonsMixin(int x, int y, int width, int height, net.minecraft.network.chat.Component message) {
+        super(x, y, width, height, message);
+    }
 
     @Inject(method = "renderDefaultSprite", at = @At("HEAD"), cancellable = true)
     private void reimaginedIntro$renderGlassPanel(GuiGraphics guiGraphics, CallbackInfo ci) {
@@ -33,11 +36,10 @@ public abstract class GlassButtonsMixin {
         // Only restyle menus: keep in-game UI (pause, inventory, chat...) vanilla.
         if (Minecraft.getInstance().level != null) return;
 
-        AbstractWidget self = (AbstractWidget) (Object) this;
         GlassRendering.drawButtonPanel(
             guiGraphics,
-            self.getX(), self.getY(), self.getWidth(), self.getHeight(),
-            isActive(), isHoveredOrFocused(), alpha
+            this.getX(), this.getY(), this.getWidth(), this.getHeight(),
+            this.isActive(), this.isHoveredOrFocused(), this.alpha
         );
         ci.cancel();
     }
