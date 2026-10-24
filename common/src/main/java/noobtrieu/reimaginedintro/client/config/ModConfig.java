@@ -20,6 +20,9 @@ public class ModConfig {
     public String menuTransition = "SLIDE";
     /** Menu transition duration in milliseconds (50-1500, clamped at runtime). */
     public int menuTransitionDurationMs = 300;
+    /** Render sub-menu backgrounds (Singleplayer/Multiplayer/Options/...) with the
+     *  same background the title screen uses, instead of vanilla's dark scrim. */
+    public boolean unifyMenuBackground = true;
 
     private static ModConfig INSTANCE;
     private static final Path CONFIG_FILE = Services.PLATFORM.getConfigDir().resolve("reimagined-intro.json");

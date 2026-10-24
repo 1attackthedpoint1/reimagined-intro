@@ -8,7 +8,8 @@
                 "PanoramaMixin",
                 "LoadingOverlayMixin",
                 "MinecraftMixin",
-                "MouseHandlerMixin"
+                "MouseHandlerMixin",
+                "MenuBackgroundMixin"
         ],
         "injectors": {
                 "defaultRequire": 1

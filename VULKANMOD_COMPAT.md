@@ -32,6 +32,20 @@ z 序导航交互存在崩溃风险，已废弃）。
 **零 GL 调用、零自建 Framebuffer、零逐像素 alpha**，全部走 VulkanMod
 完整接管的路径（与帧动画上传同一安全等级）。
 
+## v3.3.0 新增：子菜单背景统一
+
+单人游戏、多人游戏、选项、模组菜单等子菜单界面的暗色背景（vanilla 的
+menu_background 黑纱）替换为**主菜单同款背景**：
+
+- **Title Screen Loop 开启**（默认）：子菜单背景 = 开场循环视频的同一画面流
+  （同一纹理、同一 16:9 铺满逻辑、同一条时间线——视频在主菜单与子菜单之间
+  无缝连续播放）
+- **关闭**：子菜单背景 = 主菜单同款全景（走同一条 PanoramaRenderer 路径，
+  模组的 panorama_overlay 同样生效）
+
+游戏内（进入世界后）的界面不受影响；自行 override 了背景的第三方界面不受
+影响。配置项 `unifyMenuBackground`（默认 true）。
+
 ## 为什么官方 1.21.11 版（v2.1.0）与 VulkanMod 不兼容
 
 官方 v2.1.0（1.21.11）依赖 **FancyMenu + Drippy Loading Screen + WaterMedia**，
