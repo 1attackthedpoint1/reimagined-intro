@@ -113,30 +113,26 @@ public final class ScreenTransitions {
         if (t == Type.FLUID) {
             Screen current = MinecraftAccessorBridge.getActiveScreen();
             boolean outList = hasSelectionList(current);
-            boolean inList = hasSelectionList(next);
-            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] transition: {} -> {} (outList={} inList={} video={})",
-                current.getClass().getSimpleName(), next.getClass().getSimpleName(), outList, inList, videoAvailable());
-            if ((outList || inList) && videoAvailable()) {
-                // List screen leaving: wipe it out under the video cover first,
-                // the incoming side is decided at the swap point.
-                pending = next;
-                type = Type.FLUID;
-                fluidWipe = true;
-                durationMs = d; // first half (d/2) = wipe-out, same speed as phase B
-                startMs = Util.getMillis();
-                phase = Phase.A;
-                return true;
-            }
-            // Button screen leaving: swap instantly; the TAIL hook (widgets are
-            // initialized by then) captures the target layout and starts the morph.
+            // NOTE: the incoming screen is NOT initialized yet at this point, so
+            // hasSelectionList(next) would always be false - the incoming side is
+            // decided later, at the swap point (setupFluidPhaseB).
+            // Unified two-phase flow: phase A always retains the outgoing screen
+            // (wiped out for list screens, held still briefly for button screens),
+            // then the real swap happens and phase B picks wipe-in / morph.
             List<AbstractWidget> srcButtons = collectButtons(current);
-            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] morph armed: {} source buttons from {}",
-                srcButtons.size(), current.getClass().getSimpleName());
             morphSources = srcButtons.stream()
                 .map(w -> new int[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()})
                 .collect(Collectors.toList());
-            fluidArmed = true;
-            return false; // let vanilla setScreen run
+            boolean wipeOut = outList && videoAvailable();
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] transition: {} -> {} (outList={} sources={} wipeOut={})",
+                current.getClass().getSimpleName(), next.getClass().getSimpleName(), outList, srcButtons.size(), wipeOut);
+            pending = next;
+            type = Type.FLUID;
+            fluidWipe = wipeOut;
+            durationMs = wipeOut ? d : Math.max(100, d * 3 / 10);
+            startMs = Util.getMillis();
+            phase = Phase.A;
+            return true;
         }
 
         pending = next;
@@ -152,15 +148,18 @@ public final class ScreenTransitions {
      * Used by FLUID to capture the target layout and start phase B.
      */
     public static void onAfterSetScreen() {
-        if (!fluidArmed) return;
-        fluidArmed = false;
-        setupFluidPhaseB();
+        // FLUID now always goes through the two-phase interceptor, so the swap
+        // itself is driven by maybeAdvance; nothing to do here anymore.
     }
 
     /** Decides the FLUID phase B effect from the (now active) incoming screen. */
     private static void setupFluidPhaseB() {
         Screen incoming = MinecraftAccessorBridge.getActiveScreen();
-        clearMorph();
+        // Clear only the PREVIOUS morph's targets/hidden widgets. morphSources
+        // was just armed by onSetScreen for THIS transition and must survive
+        // (this was the bug that made morphs dead code since v3.5.0).
+        morphTargets = null;
+        hiddenWidgets.clear();
         if (incoming == null) return;
 
         long d = configuredDuration();
