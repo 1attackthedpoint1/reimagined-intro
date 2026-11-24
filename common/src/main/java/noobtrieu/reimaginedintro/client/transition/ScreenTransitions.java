@@ -123,13 +123,12 @@ public final class ScreenTransitions {
             morphSources = srcButtons.stream()
                 .map(w -> new int[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()})
                 .collect(Collectors.toList());
-            boolean wipeOut = outList && videoAvailable();
-            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] transition: {} -> {} (outList={} sources={} wipeOut={})",
-                current.getClass().getSimpleName(), next.getClass().getSimpleName(), outList, srcButtons.size(), wipeOut);
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] transition: {} -> {} (outList={} sources={})",
+                current.getClass().getSimpleName(), next.getClass().getSimpleName(), outList, srcButtons.size());
             pending = next;
             type = Type.FLUID;
-            fluidWipe = wipeOut;
-            durationMs = wipeOut ? d : Math.max(100, d * 3 / 10);
+            fluidWipe = false; // decided for phase B (reveal) at the swap point
+            durationMs = Math.max(100, d * 3 / 10); // brief hold of the old screen
             startMs = Util.getMillis();
             phase = Phase.A;
             return true;
@@ -165,26 +164,19 @@ public final class ScreenTransitions {
         long d = configuredDuration();
         boolean incomingList = hasSelectionList(incoming);
         List<AbstractWidget> targets = collectButtons(incoming);
-        ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] phase B setup: incoming={} list={} targets={} sources={}",
-            incoming.getClass().getSimpleName(), incomingList, targets.size(), morphSources == null ? 0 : morphSources.size());
-        if (incomingList) {
-            if (videoAvailable()) {
-                // Reveal the list screen top-to-bottom over the shared background.
-                startPhaseB(d, true);
-            } else {
-                startFallbackFadeB(d);
-            }
-            return;
-        }
-
-        if (morphSources != null && !morphSources.isEmpty() && !targets.isEmpty()) {
+        boolean canMorph = morphSources != null && !morphSources.isEmpty() && !targets.isEmpty();
+        // Hybrid: buttons ALWAYS fly (morph); list screens ALSO get the
+        // top-down reveal of the list area over the shared background video.
+        boolean reveal = incomingList && videoAvailable();
+        ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] phase B setup: incoming={} list={} targets={} sources={} morph={} reveal={}",
+            incoming.getClass().getSimpleName(), incomingList, targets.size(), morphSources == null ? 0 : morphSources.size(), canMorph, reveal);
+        if (canMorph) {
             morphTargets = targets;
             hiddenWidgets.addAll(targets);
-            startPhaseB(Math.round(d * 2.2f), false);
-            return;
-        }
-
-        if (videoAvailable()) {
+            startPhaseB(Math.round(d * 2.2f), reveal);
+        } else if (reveal) {
+            startPhaseB(d, true);
+        } else if (videoAvailable()) {
             startPhaseB(Math.max(180, d * 6 / 10), true);
         } else {
             startFallbackFadeB(d);
@@ -281,22 +273,17 @@ public final class ScreenTransitions {
             float h = g.guiHeight();
             float e = phase == Phase.A ? clamp01(progress() * 2.0f) : clamp01((progress() - 0.5f) * 2.0f);
 
-            if (type == Type.FLUID) {
-                if (phase == Phase.A && fluidWipe) {
-                    // Wipe-out: the shared background erases the old screen top-down.
-                    if (e > 0.0f) {
-                        int edge = Math.round(h * ease(e));
-                        drawVideoRegion(g, 0, edge);
-                        drawWipeEdge(g, (int) w, edge);
-                    }
-                } else if (phase == Phase.B && fluidWipe) {
-                    // Wipe-in: the remaining cover shrinks away top-down.
+            if (type == Type.FLUID && phase == Phase.B) {
+                // Hybrid phase B: top-down list reveal (video cover retreating)
+                // AND/OR button morphs flying in - both can run together.
+                if (fluidWipe) {
                     int edge = Math.round(h * ease(e));
                     if (edge < h) {
                         drawVideoRegion(g, edge, (int) h);
                         drawWipeEdge(g, (int) w, edge);
                     }
-                } else if (phase == Phase.B && morphTargets != null) {
+                }
+                if (morphTargets != null) {
                     drawMorph(g, e);
                 }
             }
