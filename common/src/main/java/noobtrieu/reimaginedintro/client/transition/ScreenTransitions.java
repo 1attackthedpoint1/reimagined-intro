@@ -102,11 +102,11 @@ public final class ScreenTransitions {
 
         Type t = configuredType();
         if (t == Type.OFF) return false;
-        // FLUID's wipes and morphs are built around the shared menu background;
-        // in-game they fall back to the plain FADE over the world.
-        if (t == Type.FLUID && Minecraft.getInstance().level != null) {
-            t = Type.FADE;
-        }
+        // In-game screen swaps (inventory, chests, crafting...) must be left
+        // completely alone: deferring the swap even briefly disturbs the init
+        // chain of container screens (RecipeBookComponent.book stays null ->
+        // NPE on render, seen with JEI installed). No animation in-game.
+        if (Minecraft.getInstance().level != null) return false;
         long d = configuredDuration();
         if (d <= 0) return false;
 
