@@ -528,7 +528,6 @@ public final class ScreenTransitions {
         int n = morphTargets.size();
         if (m == 0 || n == 0) return;
 
-        Font font = Minecraft.getInstance().font;
         long total = durationMs;
         float stagger = Math.min(35.0f, total * 0.25f / n);
 
@@ -575,19 +574,29 @@ public final class ScreenTransitions {
 
             // Arc: gentle lift mid-flight so the travel is clearly readable.
             cy -= Math.sin(pj * (float) Math.PI) * 14.0f;
-            // Breathing scale: dip slightly then overshoot back (elastic settle).
-            float squash = 1.0f - 0.22f * (float) Math.sin(pj * (float) Math.PI);
             // Alpha valley: slightly translucent mid-flight, solid on arrival.
             float fly = 1.0f - 0.28f * (float) Math.sin(pj * (float) Math.PI);
 
-            GlassRendering.drawButtonPanel(
-                g, Math.round(cx - bw * squash / 2.0f), Math.round(cy - bh * squash / 2.0f),
-                Math.round(bw * squash), Math.round(bh * squash), true, false, fly
-            );
-
-            if (pj > 0.35f && target.getMessage() != null) {
-                int alpha = (int) Math.round(clamp01((pj - 0.35f) / 0.55f) * 255.0f);
-                g.drawCenteredString(font, target.getMessage(), (int) cx, (int) cy - 4, (alpha << 24) | 0xFFFFFF);
+            // Render the REAL target widget (themed texture, slider track, lock
+            // icon...) at the interpolated rect instead of a synthetic glass
+            // ghost: the last in-flight frame is then pixel-identical to the
+            // settled screen - no style pop at the end of the flight, and
+            // icon buttons no longer leak their message text.
+            if (pj < 1.0f) {
+                int ox = target.getX(), oy = target.getY();
+                int ow = target.getWidth(), oh2 = target.getHeight();
+                boolean ovis = target.visible;
+                target.visible = true;
+                target.setAlpha(fly);
+                target.setPosition(Math.round(cx - bw / 2.0f), Math.round(cy - bh / 2.0f));
+                target.setWidth(Math.round(bw));
+                target.setHeight(Math.round(bh));
+                target.render(g, -10000, -10000, 0.0f); // mouse far away: no hover highlight
+                target.setPosition(ox, oy);
+                target.setWidth(ow);
+                target.setHeight(oh2);
+                target.visible = ovis;
+                target.setAlpha(1.0f);
             }
         }
     }
