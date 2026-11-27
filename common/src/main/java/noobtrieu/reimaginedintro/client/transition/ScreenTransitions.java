@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import noobtrieu.reimaginedintro.ReimaginedIntro;
 import noobtrieu.reimaginedintro.client.FrameStreamer;
 import noobtrieu.reimaginedintro.client.IntroScreen;
@@ -69,6 +70,8 @@ public final class ScreenTransitions {
     // --- FLUID state ---
     /** Set between the HEAD and TAIL of a vanilla setScreen that should morph. */
     private static boolean fluidArmed;
+    /** True while a transition that started inside a world is running (scrim instead of menu video). */
+    private static boolean transitionInGame;
     private static boolean morphLogged;
     /** Source button rects of the outgoing screen, reading order. */
     private static List<int[]> morphSources;
@@ -102,11 +105,13 @@ public final class ScreenTransitions {
 
         Type t = configuredType();
         if (t == Type.OFF) return false;
-        // In-game screen swaps (inventory, chests, crafting...) must be left
-        // completely alone: deferring the swap even briefly disturbs the init
-        // chain of container screens (RecipeBookComponent.book stays null ->
-        // NPE on render, seen with JEI installed). No animation in-game.
-        if (Minecraft.getInstance().level != null) return false;
+        // In-game CONTAINER screens (inventory, chests, crafting...) must be
+        // left alone: deferring the swap even briefly disturbs their init chain
+        // (RecipeBookComponent.book stays null -> NPE, seen with JEI). Non-
+        // container screens in-game (the ESC game menu and its sub-screens)
+        // animate exactly like the main menu.
+        transitionInGame = Minecraft.getInstance().level != null;
+        if (transitionInGame && next instanceof AbstractContainerScreen) return false;
         long d = configuredDuration();
         if (d <= 0) return false;
 
@@ -414,6 +419,7 @@ public final class ScreenTransitions {
         fluidArmed = false;
         fluidWipe = false;
         morphLogged = false;
+        transitionInGame = false;
         clearMorph();
     }
 
@@ -428,6 +434,7 @@ public final class ScreenTransitions {
     // -------------------------------------------------------------------------
 
     private static boolean videoAvailable() {
+        if (transitionInGame) return true; // in-game reveal uses a dark scrim, not the menu video
         return ModConfig.get().enableTitleScreenLoop && FrameStreamer.isReady();
     }
 
@@ -478,6 +485,12 @@ public final class ScreenTransitions {
      */
     private static void drawVideoRegion(GuiGraphics g, int y0, int y1) {
         if (y1 <= y0) return;
+        if (transitionInGame) {
+            // In-game: a dark scrim instead of the menu background video -
+            // the video would completely hide the world behind the game menu.
+            g.fill(0, y0, (int) g.guiWidth(), y1, 0xC8000000);
+            return;
+        }
         float w = g.guiWidth();
         float h = g.guiHeight();
         float aspect = 16.0f / 9.0f;
