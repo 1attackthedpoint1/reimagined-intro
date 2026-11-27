@@ -20,6 +20,9 @@ import noobtrieu.reimaginedintro.client.ui.GlassRendering;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -482,8 +485,10 @@ public final class ScreenTransitions {
     private static List<AbstractWidget> collectWidgets(Screen screen, List<AbstractWidget> out, boolean listMode) {
         if (screen == null) return out;
         List<GuiEventListener> queue = new ArrayList<>(screen.children());
+        Set<GuiEventListener> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         while (!queue.isEmpty()) {
             GuiEventListener l = queue.remove(queue.size() - 1);
+            if (!seen.add(l)) continue;
             if (listMode) {
                 if (l instanceof AbstractSelectionList) {
                     out.add((AbstractWidget) l);
@@ -492,11 +497,51 @@ public final class ScreenTransitions {
                 AbstractWidget w = (AbstractWidget) l;
                 if (w.visible) out.add(w);
             }
-            if (l instanceof AbstractContainerWidget container) {
-                queue.addAll(container.children());
+            // Descend containers via children(): selection-list entries
+            // implement ContainerEventHandler and expose their row elements -
+            // the same path event dispatch uses. Those widgets must fly too:
+            // option sub-screens (sound, controls, video...) are scrollable
+            // list pages whose rows ARE buttons/sliders; without this they
+            // were left to the reveal. Self/identity guards keep the walk safe.
+            if (l instanceof net.minecraft.client.gui.components.events.ContainerEventHandler handler) {
+                for (GuiEventListener c : handler.children()) {
+                    if (c != null && c != l && seen.add(c)) queue.add(c);
+                }
+            } else if (!(l instanceof AbstractWidget)) {
+                // Non-widget listeners (e.g. the OptionInstanceWidget record that
+                // OptionsList rows use in 1.21.11) hold the real sliders in
+                // their fields. Dig them out BY TYPE - no names, so it works
+                // under obfuscation and against any list entry implementation.
+                unwrapNested(l, queue, seen);
             }
         }
         return out;
+    }
+
+    /** Type-based reflection dig: finds AbstractWidgets hidden in field graphs. */
+    private static void unwrapNested(GuiEventListener l, List<GuiEventListener> queue, Set<GuiEventListener> seen) {
+        try {
+            for (Class<?> c = l.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                    f.setAccessible(true);
+                    addNestedValues(f.get(l), queue, seen);
+                }
+            }
+        } catch (Throwable ignored) {
+            // best effort only - if reflection fails the rows simply reveal
+        }
+    }
+
+    private static void addNestedValues(Object v, List<GuiEventListener> queue, Set<GuiEventListener> seen) {
+        if (v == null) return;
+        if (v instanceof AbstractWidget w) {
+            if (seen.add(w)) queue.add(w);
+        } else if (v instanceof GuiEventListener g) {
+            if (seen.add(g)) queue.add(g);
+        } else if (v instanceof Iterable<?> it) {
+            for (Object e : it) addNestedValues(e, queue, seen);
+        }
     }
 
     /**
