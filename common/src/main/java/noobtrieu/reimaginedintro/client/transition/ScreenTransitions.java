@@ -585,7 +585,12 @@ public final class ScreenTransitions {
             // ghost: the last in-flight frame is then pixel-identical to the
             // settled screen - no style pop at the end of the flight, and
             // icon buttons no longer leak their message text.
-            if (pj < 1.0f) {
+            // NOTE: keep rendering even after pj reaches 1.0 - the real widget
+            // stays gated (hidden) until the whole transition resets, so stopping
+            // early would leave arrived buttons INVISIBLE for a few frames
+            // (that was the end-of-flight flash). At pj=1 the rect/alpha are
+            // exactly the settled ones, so this is seamless.
+            {
                 int ox = target.getX(), oy = target.getY();
                 flightRendering = true;
                 int ow = target.getWidth(), oh2 = target.getHeight();
