@@ -489,9 +489,26 @@ public final class ScreenTransitions {
         while (!queue.isEmpty()) {
             GuiEventListener l = queue.remove(queue.size() - 1);
             if (!seen.add(l)) continue;
-            if (listMode) {
-                if (l instanceof AbstractSelectionList) {
+            if (l instanceof AbstractSelectionList) {
+                if (listMode) {
                     out.add((AbstractWidget) l);
+                } else {
+                    // Force-collect the row widgets of scrollable option
+                    // screens. In 1.21.11 the option rows (sound/video sliders,
+                    // cycle buttons, keybind buttons...) extend AbstractWidget
+                    // DIRECTLY - not AbstractButton/AbstractSliderButton - so
+                    // the generic filter below skips them and they were left
+                    // to the reveal (the 'no effect' report). Entries expose
+                    // their row widgets via children(); collect every visible
+                    // non-container AbstractWidget found there.
+                    for (GuiEventListener entry : ((AbstractSelectionList<?>) l).children()) {
+                        if (!(entry instanceof net.minecraft.client.gui.components.events.ContainerEventHandler eh)) continue;
+                        for (GuiEventListener c : eh.children()) {
+                            if (c instanceof AbstractWidget w && w.visible && !(w instanceof AbstractContainerWidget)) {
+                                if (seen.add(w)) out.add(w);
+                            }
+                        }
+                    }
                 }
             } else if (l instanceof AbstractButton || l instanceof AbstractSliderButton) {
                 AbstractWidget w = (AbstractWidget) l;
