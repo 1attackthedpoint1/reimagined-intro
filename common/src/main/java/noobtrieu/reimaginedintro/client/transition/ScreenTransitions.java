@@ -74,6 +74,8 @@ public final class ScreenTransitions {
     private static boolean transitionInGame;
     /** True while drawMorph renders a real widget in flight (bypasses WidgetGateMixin). */
     private static boolean flightRendering;
+    /** Bounds (x,y,w,h) of the incoming screen's selection list, if any - the reveal covers only this rect. */
+    private static int[] listRect;
     private static boolean morphLogged;
     /** Source button rects of the outgoing screen, reading order. */
     private static List<int[]> morphSources;
@@ -171,6 +173,9 @@ public final class ScreenTransitions {
         long d = configuredDuration();
         boolean incomingList = hasSelectionList(incoming);
         List<AbstractWidget> targets = collectButtons(incoming);
+        List<AbstractWidget> lists = collectWidgets(incoming, new ArrayList<>(), true);
+        listRect = lists.isEmpty() ? null
+            : new int[]{lists.get(0).getX(), lists.get(0).getY(), lists.get(0).getWidth(), lists.get(0).getHeight()};
         boolean canMorph = morphSources != null && !morphSources.isEmpty() && !targets.isEmpty();
         // Hybrid: buttons ALWAYS fly (morph); list screens ALSO get the
         // top-down reveal of the list area over the shared background video.
@@ -285,10 +290,22 @@ public final class ScreenTransitions {
                 // Hybrid phase B: top-down list reveal (video cover retreating)
                 // AND/OR button morphs flying in - both can run together.
                 if (fluidWipe) {
-                    int edge = Math.round(h * ease(e));
-                    if (edge < h) {
-                        drawVideoRegion(g, edge, (int) h);
-                        drawWipeEdge(g, (int) w, edge);
+                    if (listRect != null) {
+                        // The reveal covers ONLY the list region - everything
+                        // else on the screen (title, background, buttons) shows
+                        // immediately; the buttons themselves fly in via morph.
+                        int lx = listRect[0], ly = listRect[1], lw = listRect[2], lh = listRect[3];
+                        int edge = Math.round(lh * ease(e));
+                        if (edge < lh) {
+                            drawVideoRegion(g, ly + edge, ly + lh);
+                            drawWipeEdge(g, lx, lw, ly + edge);
+                        }
+                    } else {
+                        int edge = Math.round(h * ease(e));
+                        if (edge < h) {
+                            drawVideoRegion(g, edge, (int) h);
+                            drawWipeEdge(g, 0, (int) w, edge);
+                        }
                     }
                 }
                 if (morphTargets != null) {
@@ -312,12 +329,12 @@ public final class ScreenTransitions {
      * into the background video with NO visible line — a pure top-down reveal.
      * (Pure fill stack, VulkanMod-safe.)
      */
-    private static void drawWipeEdge(GuiGraphics g, int w, int edge) {
+    private static void drawWipeEdge(GuiGraphics g, int x, int w, int edge) {
         if (edge <= 0) return;
-        g.fill(0, edge, w, edge + 5, 0xB4000000);
-        g.fill(0, edge + 5, w, edge + 11, 0x87000000);
-        g.fill(0, edge + 11, w, edge + 18, 0x5A000000);
-        g.fill(0, edge + 18, w, edge + 26, 0x30000000);
+        g.fill(x, edge, x + w, edge + 5, 0xB4000000);
+        g.fill(x, edge + 5, x + w, edge + 11, 0x87000000);
+        g.fill(x, edge + 11, x + w, edge + 18, 0x5A000000);
+        g.fill(x, edge + 18, x + w, edge + 26, 0x30000000);
     }
 
     private static void applyOutgoing(GuiGraphics g, float w, float h, float e) {
@@ -423,6 +440,7 @@ public final class ScreenTransitions {
         fluidWipe = false;
         morphLogged = false;
         transitionInGame = false;
+        listRect = null;
         clearMorph();
     }
 
