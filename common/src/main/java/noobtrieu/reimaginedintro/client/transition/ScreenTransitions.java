@@ -601,7 +601,7 @@ public final class ScreenTransitions {
     private static void drawMorph(GuiGraphics g, float e) {
         if (!morphLogged) {
             morphLogged = true;
-            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] morph rendering: {} targets", morphTargets.size());
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/FLUID] morph rendering: {} targets ({} sources)", morphTargets.size(), morphSources.size());
         }
         int m = morphSources.size();
         int n = morphTargets.size();
@@ -619,20 +619,7 @@ public final class ScreenTransitions {
                 a = Math.min(a, m - 1);
                 b = a + 1;
             }
-
-            float sx = 0, sy = 0, sw = 0, sh = 0;
-            for (int k = a; k < b; k++) {
-                int[] r = morphSources.get(k);
-                sx += r[0] + r[2] / 2.0f;
-                sy += r[1] + r[3] / 2.0f;
-                sw += r[2];
-                sh += r[3];
-            }
             int cnt = b - a;
-            sx /= cnt;
-            sy /= cnt;
-            sw /= cnt;
-            sh /= cnt;
 
             AbstractWidget target = morphTargets.get(j);
             float tx = target.getX() + target.getWidth() / 2.0f;
@@ -646,47 +633,183 @@ public final class ScreenTransitions {
             float pj = clamp01((e * total - delay) / span);
             float ej = ease(pj);
 
-            float cx = sx + (tx - sx) * ej;
-            float cy = sy + (ty - sy) * ej;
-            float bw = sw + (tw - sw) * ej;
-            float bh = sh + (th - sh) * ej;
-
-            // Arc: gentle lift mid-flight so the travel is clearly readable.
-            cy -= Math.sin(pj * (float) Math.PI) * 14.0f;
             // Alpha valley: slightly translucent mid-flight, solid on arrival.
             float fly = 1.0f - 0.28f * (float) Math.sin(pj * (float) Math.PI);
 
-            // Render the REAL target widget (themed texture, slider track, lock
-            // icon...) at the interpolated rect instead of a synthetic glass
-            // ghost: the last in-flight frame is then pixel-identical to the
-            // settled screen - no style pop at the end of the flight, and
-            // icon buttons no longer leak their message text.
-            // NOTE: keep rendering even after pj reaches 1.0 - the real widget
-            // stays gated (hidden) until the whole transition resets, so stopping
-            // early would leave arrived buttons INVISIBLE for a few frames
-            // (that was the end-of-flight flash). At pj=1 the rect/alpha are
-            // exactly the settled ones, so this is seamless.
-            {
-                int ox = target.getX(), oy = target.getY();
-                flightRendering = true;
-                int ow = target.getWidth(), oh2 = target.getHeight();
-                boolean ovis = target.visible;
-                target.visible = true;
-                target.setAlpha(fly);
-                target.setPosition(Math.round(cx - bw / 2.0f), Math.round(cy - bh / 2.0f));
-                target.setWidth(Math.round(bw));
-                target.setHeight(Math.round(bh));
-                try {
-                    target.render(g, -10000, -10000, 0.0f); // mouse far away: no hover highlight
-                } finally {
-                    target.setPosition(ox, oy);
-                    target.setWidth(ow);
-                    target.setHeight(oh2);
-                    target.visible = ovis;
-                    target.setAlpha(1.0f);
-                    flightRendering = false;
+            if (m == n || ej >= 0.92f) {
+                // Straight 1:1 flight - or the last few frames of any liquid
+                // flight: render the REAL widget at the (final) rect. Pixel
+                // identical to the settled screen, and it also keeps rendering
+                // after pj reaches 1.0 (the real widget stays gated until the
+                // whole transition resets - stopping early was the 3.7.2 flash).
+                float bw = ej >= 0.92f ? tw : 0;
+                float bh = ej >= 0.92f ? th : 0;
+                float cx = tx, cy = ty;
+                if (m == n && ej < 0.92f) {
+                    int[] r = morphSources.get(a);
+                    float sx = r[0] + r[2] / 2.0f, sy = r[1] + r[3] / 2.0f;
+                    float sw = r[2], sh = r[3];
+                    cx = sx + (tx - sx) * ej;
+                    cy = sy + (ty - sy) * ej - (float) Math.sin(pj * Math.PI) * 14.0f;
+                    bw = sw + (tw - sw) * ej;
+                    bh = sh + (th - sh) * ej;
+                }
+                renderRealWidget(g, target, cx, cy, bw, bh, ej >= 0.92f ? fly : fly);
+                continue;
+            }
+
+            if (m < n) {
+                // ===== LIQUID SPLIT: one button detaches droplets (water-drop
+                // pinch): thick source cap + thick droplet joined by a neck that
+                // thins, then the droplet breaks off and flies, morphing to the
+                // target button size.
+                int[] r = morphSources.get(a);
+                float sx = r[0] + r[2] / 2.0f, sy = r[1] + r[3] / 2.0f;
+                float sw = r[2], sh = r[3];
+                float neckPhase = clamp01(ej / 0.45f);
+                float pinch = 0.25f + 0.60f * neckPhase;
+
+                if (neckPhase < 1.0f) {
+                    // Still attached: droplet creeps out, neck stretches thin.
+                    float bridgeT = 0.18f * neckPhase;
+                    float bx = sx + (tx - sx) * bridgeT;
+                    float by = sy + (ty - sy) * bridgeT;
+                    float srcR = sh * 0.5f * (1.0f - 0.35f * neckPhase);
+                    float dropR = sh * 0.5f;
+                    GlassRendering.drawLiquidNeck(g, sx, sy, bx, by, srcR, dropR, pinch, glassBody(fly));
+                    // Shrinking source cap
+                    float fs = 1.0f - 0.35f * neckPhase;
+                    GlassRendering.drawButtonPanel(g,
+                        Math.round(sx - sw * fs / 2.0f), Math.round(sy - sh * fs / 2.0f),
+                        Math.round(sw * fs), Math.round(sh * fs), true, false, fly);
+                    // Thick droplet head
+                    GlassRendering.drawButtonPanel(g,
+                        Math.round(bx - sw * 0.9f / 2.0f), Math.round(by - sh / 2.0f),
+                        Math.round(sw * 0.9f), Math.round(sh), true, false, fly);
+                } else {
+                    // Broken off: fly and morph into the target button.
+                    float ft = clamp01((ej - 0.45f) / 0.55f);
+                    float cx = sx + (tx - sx) * ft;
+                    float cy = sy + (ty - sy) * ft - (float) Math.sin(ft * Math.PI) * 14.0f;
+                    float bw = sw + (tw - sw) * ft;
+                    float bh = sh + (th - sh) * ft;
+                    GlassRendering.drawButtonPanel(g,
+                        Math.round(cx - bw / 2.0f), Math.round(cy - bh / 2.0f),
+                        Math.round(bw), Math.round(bh), true, false, fly);
+                    if (ft > 0.3f && target.getMessage() != null) {
+                        int alpha = (int) Math.round(clamp01((ft - 0.3f) / 0.5f) * 255.0f * Math.max(fly, 0.4f));
+                        g.drawCenteredString(Minecraft.getInstance().font, target.getMessage(),
+                            Math.round(cx), Math.round(cy - bh / 2.0f) + Math.round(bh / 2.0f) - 4, (alpha << 24) | 0xFFFFFF);
+                    }
+                }
+            } else {
+                // ===== LIQUID MERGE: several droplets converge, touch with thin
+                // necks first, then fuse into one blob that overshoots - middle
+                // bulged, edges squeezed - before settling into the button.
+                if (ej < 0.60f) {
+                    // Droplets flying in, thinning contact necks near the target.
+                    float[][] pos = new float[cnt][];
+                    for (int k = a; k < b; k++) {
+                        int[] r = morphSources.get(k);
+                        float kx = r[0] + r[2] / 2.0f, ky = r[1] + r[3] / 2.0f;
+                        float kw = r[2], kh = r[3];
+                        float cx = kx + (tx - kx) * ej;
+                        float cy = ky + (ty - ky) * ej;
+                        pos[k - a] = new float[]{cx, cy};
+                        float kwf = kw + (tw * 0.7f - kw) * ej;
+                        float khf = kh + (th * 0.7f - kh) * ej;
+                        GlassRendering.drawButtonPanel(g,
+                            Math.round(cx - kwf / 2.0f), Math.round(cy - khf / 2.0f),
+                            Math.round(kwf), Math.round(khf), true, false, fly);
+                        // Contact neck to the fusion point (thin: pinch 0.75)
+                        float d = (float) Math.sqrt((tx - cx) * (tx - cx) + (ty - cy) * (ty - cy));
+                        if (d < 90.0f && d > th * 0.5f) {
+                            float grow = clamp01((0.60f - ej) / 0.60f);
+                            GlassRendering.drawLiquidNeck(g, cx, cy, tx, ty,
+                                kh * 0.5f * (1.0f - grow * 0.3f), th * 0.5f * grow, 0.75f, glassBody(fly));
+                        }
+                    }
+                    // Neck between neighbouring droplets when they get close
+                    for (int k = 1; k < cnt; k++) {
+                        float dx = pos[k][0] - pos[k - 1][0], dy = pos[k][1] - pos[k - 1][1];
+                        float d = (float) Math.sqrt(dx * dx + dy * dy);
+                        if (d < 70.0f && d > 4.0f) {
+                            GlassRendering.drawLiquidNeck(g, pos[k - 1][0], pos[k - 1][1], pos[k][0], pos[k][1],
+                                th * 0.3f, th * 0.3f, 0.8f, glassBody(fly));
+                        }
+                    }
+                } else {
+                    // Fused: single blob at the target with inertia bulge.
+                    float B = (float) Math.sin(Math.PI * clamp01((ej - 0.60f) / 0.40f)); // peak at ej=0.8
+                    drawBulgedBlob(g, tx, ty, tw, th, B, fly, target);
                 }
             }
+        }
+    }
+
+    /** Glass body color for liquid necks, at the given flight alpha. */
+    private static int glassBody(float fly) {
+        int a = Math.round(0x5A * Math.max(0.0f, Math.min(1.0f, fly)));
+        return (a << 24) | 0xFFFFFF;
+    }
+
+    /** Renders the real widget at an interpolated rect, restoring everything after. */
+    private static void renderRealWidget(GuiGraphics g, AbstractWidget target, float cx, float cy, float bw, float bh, float alpha) {
+        int ox = target.getX(), oy = target.getY();
+        int ow = target.getWidth(), oh2 = target.getHeight();
+        boolean ovis = target.visible;
+        flightRendering = true;
+        target.visible = true;
+        target.setAlpha(alpha);
+        target.setPosition(Math.round(cx - bw / 2.0f), Math.round(cy - bh / 2.0f));
+        target.setWidth(Math.round(bw));
+        target.setHeight(Math.round(bh));
+        try {
+            target.render(g, -10000, -10000, 0.0f); // mouse far away: no hover highlight
+        } finally {
+            target.setPosition(ox, oy);
+            target.setWidth(ow);
+            target.setHeight(oh2);
+            target.visible = ovis;
+            target.setAlpha(1.0f);
+            flightRendering = false;
+        }
+    }
+
+    /**
+     * Fused merge blob with liquid inertia: vertical strips across the target
+     * rect - middle strips taller/wider, edge strips squeezed (bulge B, 0..1) -
+     * relaxing back to the exact button rect as B returns to 0.
+     */
+    private static void drawBulgedBlob(GuiGraphics g, float tx, float ty, float tw, float th, float B, float fly, AbstractWidget target) {
+        int strips = 9;
+        float stripW = tw / strips;
+        float left = tx - tw / 2.0f, top = ty - th / 2.0f;
+        for (int i = 0; i < strips; i++) {
+            float tc = (i + 0.5f) / strips;
+            float bell = (float) Math.exp(-((tc - 0.5f) * (tc - 0.5f)) * 2.8f * 2.8f);
+            float sc = 1.0f + 0.30f * B * bell;
+            float ys = top - th * 0.14f * B * bell;
+            float ye = top + th + th * 0.14f * B * bell;
+            float x0 = left + i * stripW - stripW * (sc - 1.0f) * 0.5f;
+            int body = Math.round(0x46 * fly) << 24 | 0xFFFFFF;
+            g.fill(Math.round(x0), Math.round(ys), Math.round(x0 + stripW * sc + 1.0f), Math.round(ye), body);
+            // top rim on this strip
+            if (i > 0 && i < strips - 1) {
+                int rim = Math.round(0x8C * fly) << 24 | 0xFFFFFF;
+                g.fill(Math.round(x0), Math.round(ys), Math.round(x0 + stripW * sc + 1.0f), Math.round(ys + 1.0f), rim);
+            }
+        }
+        // dark base ring under the strips so the blob still reads as a button
+        if (B > 0.02f) {
+            int rimD = Math.round(0xC0 * fly) << 24;
+            GlassRendering.fillRounded(g, Math.round(left + stripW), Math.round(top + th - 1.0f),
+                Math.round(tw - 2 * stripW), 1, rimD);
+        }
+        if (target.getMessage() != null) {
+            int alpha = (int) Math.round(255.0f * Math.max(fly, 0.4f));
+            g.drawCenteredString(Minecraft.getInstance().font, target.getMessage(),
+                Math.round(tx), Math.round(ty - 4), (alpha << 24) | 0xFFFFFF);
         }
     }
 

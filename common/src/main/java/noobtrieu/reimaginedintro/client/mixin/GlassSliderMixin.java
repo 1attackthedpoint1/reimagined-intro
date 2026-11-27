@@ -29,7 +29,9 @@ public abstract class GlassSliderMixin extends AbstractWidget {
     }
 
     private static boolean shouldGlass() {
-        return ModConfig.get().glassButtons && Minecraft.getInstance().level == null;
+        // Liquid-glass theme applies EVERYWHERE (menus + in-game) so morph
+        // droplets and settled buttons always share the same material.
+        return ModConfig.get().glassButtons;
     }
 
     @Inject(method = "renderWidget", at = @At("HEAD"))

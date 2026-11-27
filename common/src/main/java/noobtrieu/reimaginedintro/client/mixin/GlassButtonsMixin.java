@@ -33,8 +33,8 @@ public abstract class GlassButtonsMixin extends AbstractWidget {
     @Inject(method = "renderDefaultSprite", at = @At("HEAD"), cancellable = true)
     private void reimaginedIntro$renderGlassPanel(GuiGraphics guiGraphics, CallbackInfo ci) {
         if (!ModConfig.get().glassButtons) return;
-        // Only restyle menus: keep in-game UI (pause, inventory, chat...) vanilla.
-        if (Minecraft.getInstance().level != null) return;
+        // Liquid-glass theme applies EVERYWHERE (menus + in-game) so morph
+        // droplets and settled buttons always share the same material.
 
         GlassRendering.drawButtonPanel(
             guiGraphics,
