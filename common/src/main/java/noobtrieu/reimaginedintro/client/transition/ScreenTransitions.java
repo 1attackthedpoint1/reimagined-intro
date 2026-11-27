@@ -387,13 +387,9 @@ public final class ScreenTransitions {
             }
             case FADE -> curtainAlpha = 1.0f - e;
             case FLUID -> {
-                // Wipe-in companion: the incoming page settles with a slight
-                // downward drift so it feels like it follows the reveal line.
-                if (fluidWipe && e < 1.0f) {
-                    g.pose().pushMatrix();
-                    g.pose().translate(0.0f, (1.0f - ease(e)) * 12.0f);
-                    posePushed = true;
-                }
+                // No positional drift for the incoming page: the background and
+                // title must stay perfectly still (user request) - only the
+                // reveal and the button morphs move.
             }
             case ZOOM -> {
                 float s = 0.92f + 0.08f * ease(e);
