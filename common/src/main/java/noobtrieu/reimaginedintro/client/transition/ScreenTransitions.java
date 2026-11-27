@@ -72,6 +72,8 @@ public final class ScreenTransitions {
     private static boolean fluidArmed;
     /** True while a transition that started inside a world is running (scrim instead of menu video). */
     private static boolean transitionInGame;
+    /** True while drawMorph renders a real widget in flight (bypasses WidgetGateMixin). */
+    private static boolean flightRendering;
     private static boolean morphLogged;
     /** Source button rects of the outgoing screen, reading order. */
     private static List<int[]> morphSources;
@@ -235,6 +237,7 @@ public final class ScreenTransitions {
 
     /** Widget render gate (WidgetGateMixin): suppresses the real buttons during a morph. */
     public static boolean isWidgetHidden(AbstractWidget widget) {
+        if (flightRendering) return false; // drawMorph renders this very widget right now
         if (phase == Phase.IDLE || hiddenWidgets.isEmpty() || !hiddenWidgets.contains(widget)) return false;
         // Safety fuse: never keep widgets hidden past the animation window.
         return Util.getMillis() - startMs <= durationMs + 500L;
@@ -584,6 +587,7 @@ public final class ScreenTransitions {
             // icon buttons no longer leak their message text.
             if (pj < 1.0f) {
                 int ox = target.getX(), oy = target.getY();
+                flightRendering = true;
                 int ow = target.getWidth(), oh2 = target.getHeight();
                 boolean ovis = target.visible;
                 target.visible = true;
@@ -591,12 +595,16 @@ public final class ScreenTransitions {
                 target.setPosition(Math.round(cx - bw / 2.0f), Math.round(cy - bh / 2.0f));
                 target.setWidth(Math.round(bw));
                 target.setHeight(Math.round(bh));
-                target.render(g, -10000, -10000, 0.0f); // mouse far away: no hover highlight
-                target.setPosition(ox, oy);
-                target.setWidth(ow);
-                target.setHeight(oh2);
-                target.visible = ovis;
-                target.setAlpha(1.0f);
+                try {
+                    target.render(g, -10000, -10000, 0.0f); // mouse far away: no hover highlight
+                } finally {
+                    target.setPosition(ox, oy);
+                    target.setWidth(ow);
+                    target.setHeight(oh2);
+                    target.visible = ovis;
+                    target.setAlpha(1.0f);
+                    flightRendering = false;
+                }
             }
         }
     }
