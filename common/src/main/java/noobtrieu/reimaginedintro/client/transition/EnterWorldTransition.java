@@ -153,7 +153,7 @@ public final class EnterWorldTransition {
             // Pre-logo frames: fullscreen video, no window yet. One band over
             // the whole screen = exactly the intro screen's cover look.
             float[] m = coverMap(w, h);
-            g.blit(FrameStreamer.getTextureId(), 0, 0, w, h,
+            g.blit(FrameStreamer.getReversedTextureId(), 0, 0, w, h,
                 (0 + m[0]) * m[2], (w + m[0]) * m[2],
                 (0 + m[1]) * m[3], (h + m[1]) * m[3]);
             return;
@@ -216,7 +216,7 @@ public final class EnterWorldTransition {
         float u1 = (sx1 + m[0]) * m[2];
         float v0 = (sy0 + m[1]) * m[3];
         float v1 = (sy1 + m[1]) * m[3];
-        g.blit(FrameStreamer.getTextureId(), sx0, sy0, sx1, sy1, u0, u1, v0, v1);
+        g.blit(FrameStreamer.getReversedTextureId(), sx0, sy0, sx1, sy1, u0, u1, v0, v1);
     }
 
     private static int clamp(int v, int lo, int hi) {

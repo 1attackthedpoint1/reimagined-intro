@@ -103,7 +103,20 @@ public class FrameStreamer {
      */
     public static final int REVERSED_STATIC_FRAME = 76;
 
-    /** Reversed-decode thread pool (parallel JPG decode under world-load CPU contention). */
+    /**
+     * The reversed transition plays the intro frames DOWNSCALED to 960x540
+     * (assets textures/rev/, pre-generated). Full-res 1440p decode+upload
+     * could not keep 25 fps while the world loads (reports: stalls, then the
+     * whole cave sequence skipped). At 540p a decode is ~6 ms and the upload
+     * is 2 MB/frame - the 3-thread pool keeps up under any load, and the
+     * bilinear-filtered upscale over a 3.4 s transition is fine.
+     */
+    public static final Identifier REV_TEXTURE_ID = ReimaginedIntro.id("reversed_frame");
+
+    private static DynamicTexture revTexture;
+    private static boolean revInitialized;
+
+    /** Reversed-decode thread pool (parallel small-JPG decode under world-load CPU contention). */
     private static final java.util.concurrent.ExecutorService REVERSE_DECODE_POOL =
             java.util.concurrent.Executors.newFixedThreadPool(3, r -> {
                 Thread t = new Thread(r, "ReimaginedIntro-RevDecode");
@@ -111,8 +124,8 @@ public class FrameStreamer {
                 return t;
             });
 
-    /** Cap on decoded-but-unplayed intro frames held off-heap (1440p = ~14.7 MB each). */
-    private static final int REVERSE_CACHE_CAP = 14;
+    /** Cap on decoded-but-unplayed rev frames held off-heap (540p = ~2 MB each). */
+    private static final int REVERSE_CACHE_CAP = 20;
 
     /** Max time (ms) a missing reversed frame may be held before playback skips ahead. */
     private static final long REVERSE_MAX_HOLD_MS = 250;
@@ -120,32 +133,70 @@ public class FrameStreamer {
     /** When the current hold started (0 = none). */
     private static long reverseHoldSinceMs;
 
-    /** True while the reversed session is active (startReverse .. forward update/cleanup). */
+    /** True while the reversed session is active. */
     private static boolean reversedActive;
 
+    private static void ensureRevTexture() {
+        if (revInitialized) return;
+        NativeImage first = loadReversedFrame(INTRO_FRAME_COUNT);
+        int width = first != null ? first.getWidth() : 960;
+        int height = first != null ? first.getHeight() : 540;
+        revTexture = new SmoothDynamicTexture("reimagined_rev_frame", width, height, false);
+        Minecraft.getInstance().getTextureManager().register(REV_TEXTURE_ID, revTexture);
+        revInitialized = true;
+        if (first != null) {
+            predecodedCache.put(cacheKeyRev(INTRO_FRAME_COUNT), first);
+        }
+    }
+
+    private static NativeImage loadReversedFrame(int frameIndex) {
+        String jpgPath = String.format("/assets/reimagined-intro/textures/rev/frame_%04d.jpg", frameIndex);
+        InputStream stream = ReimaginedIntro.class.getResourceAsStream(jpgPath);
+        if (stream != null) {
+            try (InputStream is = stream) {
+                return NativeImageDecoder.decode(is);
+            } catch (Throwable e) {
+                ReimaginedIntro.LOGGER.error("Failed to decode rev frame #" + frameIndex, e);
+            }
+        }
+        return null;
+    }
+
+    private static String cacheKeyRev(int frame) {
+        return "r_" + frame;
+    }
+
+    private static int revBufferedCount() {
+        int n = 0;
+        for (String k : predecodedCache.keySet()) {
+            if (k.startsWith("r_")) n++;
+        }
+        return n;
+    }
+
     /**
-     * Kicks off background decoding of the whole reversed tail (160 -> 77),
-     * NEAREST-FIRST: playback walks 161 -> 77, so higher indices are needed
+     * Kicks off background decoding of the whole reversed tail (161 -> 77)
+     * NEAREST-FIRST: playback walks downward, so higher indices are needed
      * sooner. Workers park while the unplayed buffer is at the cap, keeping
      * memory bounded; parked tasks bail out when the session ends.
      */
     public static synchronized void preDecodeReversed() {
-        if (!initialized) init();
+        ensureRevTexture();
         for (int f = INTRO_FRAME_COUNT - 1; f > REVERSED_STATIC_FRAME; f--) {
             final int frame = f;
-            if (predecodedCache.containsKey(cacheKey(false, frame))) continue;
+            if (predecodedCache.containsKey(cacheKeyRev(frame))) continue;
             REVERSE_DECODE_POOL.submit(() -> {
-                String key = cacheKey(false, frame);
+                String key = cacheKeyRev(frame);
                 if (predecodedCache.containsKey(key)) return;
-                while (introBufferedCount() >= REVERSE_CACHE_CAP) {
-                    if (!reversedActive) return; // session over (cancelled/back to menu)
+                while (revBufferedCount() >= REVERSE_CACHE_CAP) {
+                    if (!reversedActive) return; // session over (cancelled / reveal finished)
                     try {
-                        Thread.sleep(25);
+                        Thread.sleep(20);
                     } catch (InterruptedException e) {
                         return;
                     }
                 }
-                NativeImage img = loadFrame(false, frame);
+                NativeImage img = loadReversedFrame(frame);
                 if (img != null) {
                     predecodedCache.put(key, img);
                 }
@@ -153,31 +204,16 @@ public class FrameStreamer {
         }
     }
 
-    private static int introBufferedCount() {
-        int n = 0;
-        for (String k : predecodedCache.keySet()) {
-            if (k.startsWith("i_")) n++;
-        }
-        return n;
-    }
-
     /**
-     * Reversed intro playback (enter-world transition): plays intro frames
-     * INTRO_FRAME_COUNT -> 1 at the original pacing. Intro frames were freed
-     * after startup; they are re-decoded in the BACKGROUND pool (see
-     * preDecodeReversed).
+     * Reversed intro playback (enter-world transition): plays the DOWNSCALED
+     * rev frames INTRO_FRAME_COUNT -> 1 at the original pacing.
      *
-     * Hard rule learned from v3.7.8 stutters: NEVER decode on the render
-     * thread. A synchronous 1440p JPG decode under world-load CPU contention
-     * took hundreds of ms per frame - every tick blocked and skipped several
-     * frames, eating the whole cave sequence in seconds (the "straight to the
-     * mojang page" report). Now a missing frame HOLDS the current picture up
-     * to 250 ms, then playback skips minimally to the nearest decoded frame
-     * at or below the target; with nearest-first decoding that is at most a
-     * few frames.
+     * Hard rule: NEVER decode on the render thread. A missing frame holds
+     * the current picture up to 250 ms, then playback skips minimally to the
+     * nearest decoded frame at/below the target.
      */
     public static synchronized void updateReversed(long elapsedMs) {
-        if (!initialized) init();
+        ensureRevTexture();
         isLoopingPhase = false;
 
         int targetFrame = INTRO_FRAME_COUNT - (int) (elapsedMs / FRAME_DURATION_MS);
@@ -186,7 +222,7 @@ public class FrameStreamer {
         int uploadFrame = targetFrame <= REVERSED_STATIC_FRAME ? REVERSED_STATIC_FRAME : targetFrame;
         if (uploadFrame == lastUploadedFrame) return;
 
-        NativeImage image = predecodedCache.get(cacheKey(false, uploadFrame));
+        NativeImage image = predecodedCache.get(cacheKeyRev(uploadFrame));
         if (image == null) {
             // Missing: hold, then skip minimally. Never a sync decode here.
             long now = net.minecraft.util.Util.getMillis();
@@ -197,7 +233,7 @@ public class FrameStreamer {
             if (now - reverseHoldSinceMs < REVERSE_MAX_HOLD_MS) return;
             int best = -1;
             for (String k : predecodedCache.keySet()) {
-                if (!k.startsWith("i_")) continue;
+                if (!k.startsWith("r_")) continue;
                 try {
                     int f = Integer.parseInt(k.substring(2));
                     if (f <= uploadFrame && f > best && f != lastUploadedFrame) best = f;
@@ -206,24 +242,24 @@ public class FrameStreamer {
             }
             if (best <= 0) return; // nothing ready below: keep holding
             uploadFrame = best;
-            image = predecodedCache.remove(cacheKey(false, uploadFrame));
+            image = predecodedCache.remove(cacheKeyRev(uploadFrame));
         } else {
-            image = predecodedCache.remove(cacheKey(false, uploadFrame));
+            image = predecodedCache.remove(cacheKeyRev(uploadFrame));
         }
         reverseHoldSinceMs = 0;
 
-        if (image != null && dynamicTexture != null) {
-            dynamicTexture.setPixels(image);
-            dynamicTexture.upload();
+        if (image != null && revTexture != null) {
+            revTexture.setPixels(image);
+            revTexture.upload();
         }
         lastUploadedFrame = uploadFrame;
 
         // Reversed playback walks downward: anything ABOVE the current index
-        // is already played and gets freed. Loop cache is untouched.
+        // is already played and gets freed. Intro/loop caches are untouched.
         final int played = uploadFrame;
         predecodedCache.entrySet().removeIf(entry -> {
             String key = entry.getKey();
-            if (key.startsWith("l_")) return false;
+            if (!key.startsWith("r_")) return false;
             try {
                 int f = Integer.parseInt(key.substring(2));
                 if (f > played) {
@@ -236,13 +272,23 @@ public class FrameStreamer {
         });
     }
 
-    /** Prepares reversed playback: uploads the LAST intro frame and queues the tail decode. */
+    /**
+     * Prepares reversed playback: uploads the LAST rev frame (one small 540p
+     * decode at the click moment) and queues the tail decode.
+     */
     public static synchronized void startReverse() {
-        if (!initialized) init();
+        ensureRevTexture();
         isLoopingPhase = false;
         reversedActive = true;
         reverseHoldSinceMs = 0;
-        uploadFrame(false, INTRO_FRAME_COUNT); // one-time first frame (~35 ms, at the click)
+        NativeImage first = predecodedCache.remove(cacheKeyRev(INTRO_FRAME_COUNT));
+        if (first == null) {
+            first = loadReversedFrame(INTRO_FRAME_COUNT);
+        }
+        if (first != null && revTexture != null) {
+            revTexture.setPixels(first);
+            revTexture.upload();
+        }
         lastUploadedFrame = INTRO_FRAME_COUNT;
         preDecodeReversed();
     }
@@ -254,6 +300,12 @@ public class FrameStreamer {
      */
     public static boolean reversedAtLogoPage() {
         return reversedActive && lastUploadedFrame > 0 && lastUploadedFrame <= REVERSED_STATIC_FRAME;
+    }
+
+    /** The reversed transition's texture id (the downscaled frame stream). */
+    public static Identifier getReversedTextureId() {
+        ensureRevTexture();
+        return REV_TEXTURE_ID;
     }
 
     private static void pruneStaleFrames(boolean isLoop, int currentFrame) {
@@ -365,6 +417,12 @@ public class FrameStreamer {
     public static void cleanup() {
         predecodedCache.values().forEach(NativeImage::close);
         predecodedCache.clear();
+        reversedActive = false;
+        revInitialized = false;
+        if (revTexture != null) {
+            revTexture.close();
+            revTexture = null;
+        }
         if (dynamicTexture != null) {
             dynamicTexture.close();
             dynamicTexture = null;
