@@ -34,9 +34,12 @@ public final class GlassRendering {
     }
 
     /**
-     * Full capsule (pill) fill: radius = min(w,h)/2, drawn as two scanline
-     * semicircle caps plus a middle band. Falls back to the old staircase for
-     * very small rects.
+     * Full capsule (stadium) fill: radius = min(w,h)/2. Correct scanline
+     * geometry: for a WIDE rect every row spans from the LEFT cap's arc to the
+     * RIGHT cap's arc (leftmost x+r-hw .. rightmost x+w-r+hw); TALL rects
+     * transpose to per-column spans. (The previous version drew both caps at
+     * the left end with an always-empty middle band - for wide buttons the
+     * entire body was silently missing.)
      */
     public static void fillPill(GuiGraphics g, int x, int y, int w, int h, int color) {
         if (w <= 0 || h <= 0) return;
@@ -46,19 +49,28 @@ public final class GlassRendering {
             return;
         }
         double rr = (double) r;
-        // top cap
-        for (int i = 0; i < r; i++) {
-            double dy = (i + 0.5) - r;
-            double hw = Math.sqrt(rr * rr - dy * dy);
-            g.fill((int) Math.floor(x + r - hw), y + i, (int) Math.ceil(x + r + hw), y + i + 1, color);
-        }
-        // middle band
-        g.fill(x, y + r, x + w, y + h - r, color);
-        // bottom cap
-        for (int j = 0; j < r; j++) {
-            double dy = r - (j + 0.5);
-            double hw = Math.sqrt(rr * rr - dy * dy);
-            g.fill((int) Math.floor(x + r - hw), y + h - r + j, (int) Math.ceil(x + r + hw), y + h - r + j + 1, color);
+        if (w >= h) {
+            // horizontal stadium: caps on the left/right ends
+            for (int i = 0; i < h; i++) {
+                double dy = (i + 0.5) - h / 2.0;
+                double a = rr * rr - dy * dy;
+                if (a <= 0.0) continue;
+                double hw = Math.sqrt(a);
+                int x0 = (int) Math.floor(x + r - hw);
+                int x1 = (int) Math.ceil(x + w - r + hw);
+                if (x1 > x0) g.fill(x0, y + i, x1, y + i + 1, color);
+            }
+        } else {
+            // vertical stadium: caps on the top/bottom ends
+            for (int j = 0; j < w; j++) {
+                double dx = (j + 0.5) - w / 2.0;
+                double a = rr * rr - dx * dx;
+                if (a <= 0.0) continue;
+                double hw = Math.sqrt(a);
+                int y0 = (int) Math.floor(y + r - hw);
+                int y1 = (int) Math.ceil(y + h - r + hw);
+                if (y1 > y0) g.fill(x + j, y0, x + j + 1, y1, color);
+            }
         }
     }
 
