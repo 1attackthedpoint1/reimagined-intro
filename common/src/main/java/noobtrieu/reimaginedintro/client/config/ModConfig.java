@@ -31,6 +31,14 @@ public class ModConfig {
      *  (in-game UI is never restyled). */
     public boolean glassButtons = true;
 
+    /**
+     * Reversed-intro transition when entering a world: the startup animation
+     * (logo page -> cave -> menu) plays backwards over the world load, ending
+     * on a logo-style page whose logo rect shows the live game, which then
+     * expands fullscreen.
+     */
+    public boolean reverseIntroOnWorldEnter = true;
+
     private static ModConfig INSTANCE;
     private static final Path CONFIG_FILE = Services.PLATFORM.getConfigDir().resolve("reimagined-intro.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();

@@ -95,6 +95,54 @@ public class FrameStreamer {
         }
     }
 
+    /**
+     * Reversed intro playback (enter-world transition): plays intro frames
+     * INTRO_FRAME_COUNT -> 1 over the same wall-clock pacing as the forward
+     * intro. Intro frames may have been freed after startup - they are
+     * re-decoded from the jar on demand, same as the forward path.
+     */
+    public static synchronized void updateReversed(long elapsedMs) {
+        if (!initialized) init();
+        isLoopingPhase = false;
+
+        int targetFrame = INTRO_FRAME_COUNT - (int) (elapsedMs / FRAME_DURATION_MS);
+        if (targetFrame < 1) targetFrame = 1;
+        final int frame = targetFrame;
+
+        if (targetFrame != lastUploadedFrame) {
+            uploadFrame(false, targetFrame);
+            lastUploadedFrame = targetFrame;
+
+            // Free frames already played (reversed walks downward, so anything
+            // ABOVE the current index is stale). Loop cache is left alone.
+            predecodedCache.entrySet().removeIf(entry -> {
+                String key = entry.getKey();
+                if (key.startsWith("l_")) return false;
+                try {
+                    int f = Integer.parseInt(key.substring(2));
+                    if (f > frame) {
+                        entry.getValue().close();
+                        return true;
+                    }
+                } catch (Exception ignored) {
+                }
+                return false;
+            });
+
+            // Prefetch the frames we are about to play (index going down)
+            prefetchUpcoming(false, Math.max(1, targetFrame - 4), Math.max(1, targetFrame - 1));
+        }
+    }
+
+    /** Prepares reversed playback: uploads the LAST intro frame and prefetches behind it. */
+    public static synchronized void startReverse() {
+        if (!initialized) init();
+        isLoopingPhase = false;
+        uploadFrame(false, INTRO_FRAME_COUNT);
+        lastUploadedFrame = INTRO_FRAME_COUNT;
+        prefetchUpcoming(false, INTRO_FRAME_COUNT - 4, INTRO_FRAME_COUNT - 1);
+    }
+
     private static void pruneStaleFrames(boolean isLoop, int currentFrame) {
         if (predecodedCache.isEmpty()) return;
 
