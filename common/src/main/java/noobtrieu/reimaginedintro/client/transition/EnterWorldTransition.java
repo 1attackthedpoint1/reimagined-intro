@@ -49,6 +49,9 @@ public final class EnterWorldTransition {
         if (!ModConfig.get().reverseIntroOnWorldEnter) return false;
         armed = true;
         active = false;
+        // Kick the background decode right at the click - a few hundred ms
+        // before the loading screen's first render, for free.
+        FrameStreamer.preDecodeReversed();
         return true;
     }
 

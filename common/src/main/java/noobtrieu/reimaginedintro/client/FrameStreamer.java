@@ -103,99 +103,153 @@ public class FrameStreamer {
      */
     public static final int REVERSED_STATIC_FRAME = 76;
 
-    /** Reversed-prefetch lead: frames decoded ahead of playback. */
-    private static final int REVERSE_LEAD = 12;
+    /** Reversed-decode thread pool (parallel JPG decode under world-load CPU contention). */
+    private static final java.util.concurrent.ExecutorService REVERSE_DECODE_POOL =
+            java.util.concurrent.Executors.newFixedThreadPool(3, r -> {
+                Thread t = new Thread(r, "ReimaginedIntro-RevDecode");
+                t.setDaemon(true);
+                return t;
+            });
 
-    /** Wall-clock time consumed by skip-aheads, so the timeline stays monotonic. */
-    private static long reverseSkipMs;
+    /** Cap on decoded-but-unplayed intro frames held off-heap (1440p = ~14.7 MB each). */
+    private static final int REVERSE_CACHE_CAP = 14;
+
+    /** Max time (ms) a missing reversed frame may be held before playback skips ahead. */
+    private static final long REVERSE_MAX_HOLD_MS = 250;
+
+    /** When the current hold started (0 = none). */
+    private static long reverseHoldSinceMs;
+
     /** True while the reversed session is active (startReverse .. forward update/cleanup). */
     private static boolean reversedActive;
 
     /**
+     * Kicks off background decoding of the whole reversed tail (160 -> 77),
+     * NEAREST-FIRST: playback walks 161 -> 77, so higher indices are needed
+     * sooner. Workers park while the unplayed buffer is at the cap, keeping
+     * memory bounded; parked tasks bail out when the session ends.
+     */
+    public static synchronized void preDecodeReversed() {
+        if (!initialized) init();
+        for (int f = INTRO_FRAME_COUNT - 1; f > REVERSED_STATIC_FRAME; f--) {
+            final int frame = f;
+            if (predecodedCache.containsKey(cacheKey(false, frame))) continue;
+            REVERSE_DECODE_POOL.submit(() -> {
+                String key = cacheKey(false, frame);
+                if (predecodedCache.containsKey(key)) return;
+                while (introBufferedCount() >= REVERSE_CACHE_CAP) {
+                    if (!reversedActive) return; // session over (cancelled/back to menu)
+                    try {
+                        Thread.sleep(25);
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                }
+                NativeImage img = loadFrame(false, frame);
+                if (img != null) {
+                    predecodedCache.put(key, img);
+                }
+            });
+        }
+    }
+
+    private static int introBufferedCount() {
+        int n = 0;
+        for (String k : predecodedCache.keySet()) {
+            if (k.startsWith("i_")) n++;
+        }
+        return n;
+    }
+
+    /**
      * Reversed intro playback (enter-world transition): plays intro frames
      * INTRO_FRAME_COUNT -> 1 at the original pacing. Intro frames were freed
-     * after startup; they are re-decoded from the jar on demand.
+     * after startup; they are re-decoded in the BACKGROUND pool (see
+     * preDecodeReversed).
      *
-     * Stall-proofing (decode cannot always keep 25 fps of 1440p JPGs while
-     * the world loads): a cache miss does NOT block - playback skips ahead to
-     * the nearest already-decoded frame (the video fast-forwards instead of
-     * freezing), and only a fully cold cache falls back to a sync decode.
+     * Hard rule learned from v3.7.8 stutters: NEVER decode on the render
+     * thread. A synchronous 1440p JPG decode under world-load CPU contention
+     * took hundreds of ms per frame - every tick blocked and skipped several
+     * frames, eating the whole cave sequence in seconds (the "straight to the
+     * mojang page" report). Now a missing frame HOLDS the current picture up
+     * to 250 ms, then playback skips minimally to the nearest decoded frame
+     * at or below the target; with nearest-first decoding that is at most a
+     * few frames.
      */
     public static synchronized void updateReversed(long elapsedMs) {
         if (!initialized) init();
         isLoopingPhase = false;
 
-        // Skip-ahead shortens the timeline by the skipped frames' duration so
-        // the next tick's target lands right behind the skipped position -
-        // playback stays monotonic (never steps back up).
-        int targetFrame = INTRO_FRAME_COUNT - (int) ((elapsedMs - reverseSkipMs) / FRAME_DURATION_MS);
+        int targetFrame = INTRO_FRAME_COUNT - (int) (elapsedMs / FRAME_DURATION_MS);
         if (targetFrame < 1) targetFrame = 1;
         // Logo phase (frames 1..76) is one static image: clamp to it.
         int uploadFrame = targetFrame <= REVERSED_STATIC_FRAME ? REVERSED_STATIC_FRAME : targetFrame;
-        final int frame = uploadFrame;
+        if (uploadFrame == lastUploadedFrame) return;
 
-        if (uploadFrame != lastUploadedFrame) {
-            // Skip-ahead on cache miss: jump to the nearest decoded frame we
-            // have not played yet (index <= target = further along the
-            // reversed timeline) instead of stalling on a synchronous decode.
-            if (!predecodedCache.containsKey(cacheKey(false, uploadFrame))) {
-                int best = -1;
-                for (String key : predecodedCache.keySet()) {
-                    if (!key.startsWith("i_")) continue;
-                    try {
-                        int f = Integer.parseInt(key.substring(2));
-                        if (f <= uploadFrame && f > best && f != lastUploadedFrame) best = f;
-                    } catch (Exception ignored) {
-                    }
-                }
-                if (best > 0) {
-                    reverseSkipMs += (uploadFrame - best) * FRAME_DURATION_MS;
-                    uploadFrame = best;
-                }
+        NativeImage image = predecodedCache.get(cacheKey(false, uploadFrame));
+        if (image == null) {
+            // Missing: hold, then skip minimally. Never a sync decode here.
+            long now = net.minecraft.util.Util.getMillis();
+            if (reverseHoldSinceMs == 0) {
+                reverseHoldSinceMs = now;
+                return; // keep the last picture one more beat
             }
-            uploadFrame(false, uploadFrame);
-            lastUploadedFrame = uploadFrame;
-
-            // Reversed playback walks downward: anything ABOVE the current
-            // index is already played and gets freed. Loop cache is untouched.
-            predecodedCache.entrySet().removeIf(entry -> {
-                String key = entry.getKey();
-                if (key.startsWith("l_")) return false;
+            if (now - reverseHoldSinceMs < REVERSE_MAX_HOLD_MS) return;
+            int best = -1;
+            for (String k : predecodedCache.keySet()) {
+                if (!k.startsWith("i_")) continue;
                 try {
-                    int f = Integer.parseInt(key.substring(2));
-                    if (f > frame) {
-                        entry.getValue().close();
-                        return true;
-                    }
+                    int f = Integer.parseInt(k.substring(2));
+                    if (f <= uploadFrame && f > best && f != lastUploadedFrame) best = f;
                 } catch (Exception ignored) {
                 }
-                return false;
-            });
-
-            // Prefetch the frames we are about to play (index going down);
-            // nothing below the static frame is ever needed.
-            int pfEnd = Math.max(uploadFrame - 1, REVERSED_STATIC_FRAME);
-            int pfStart = Math.max(uploadFrame - REVERSE_LEAD, REVERSED_STATIC_FRAME);
-            if (pfEnd >= pfStart) {
-                prefetchUpcoming(false, pfStart, pfEnd);
             }
+            if (best <= 0) return; // nothing ready below: keep holding
+            uploadFrame = best;
+            image = predecodedCache.remove(cacheKey(false, uploadFrame));
+        } else {
+            image = predecodedCache.remove(cacheKey(false, uploadFrame));
         }
+        reverseHoldSinceMs = 0;
+
+        if (image != null && dynamicTexture != null) {
+            dynamicTexture.setPixels(image);
+            dynamicTexture.upload();
+        }
+        lastUploadedFrame = uploadFrame;
+
+        // Reversed playback walks downward: anything ABOVE the current index
+        // is already played and gets freed. Loop cache is untouched.
+        final int played = uploadFrame;
+        predecodedCache.entrySet().removeIf(entry -> {
+            String key = entry.getKey();
+            if (key.startsWith("l_")) return false;
+            try {
+                int f = Integer.parseInt(key.substring(2));
+                if (f > played) {
+                    entry.getValue().close();
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
+            return false;
+        });
     }
 
-    /** Prepares reversed playback: uploads the LAST intro frame and prefetches behind it. */
+    /** Prepares reversed playback: uploads the LAST intro frame and queues the tail decode. */
     public static synchronized void startReverse() {
         if (!initialized) init();
         isLoopingPhase = false;
         reversedActive = true;
-        reverseSkipMs = 0;
-        uploadFrame(false, INTRO_FRAME_COUNT);
+        reverseHoldSinceMs = 0;
+        uploadFrame(false, INTRO_FRAME_COUNT); // one-time first frame (~35 ms, at the click)
         lastUploadedFrame = INTRO_FRAME_COUNT;
-        prefetchUpcoming(false, INTRO_FRAME_COUNT - REVERSE_LEAD, INTRO_FRAME_COUNT - 1);
+        preDecodeReversed();
     }
 
     /**
      * True when the reversed playback has actually reached the static logo
-     * page (position-based, robust to skip-aheads: the window opens when the
+     * page (position-based, robust to skips: the window opens when the
      * picture IS the logo page, not when the clock says so).
      */
     public static boolean reversedAtLogoPage() {
