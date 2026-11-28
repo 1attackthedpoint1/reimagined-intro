@@ -21,6 +21,11 @@ public final class GlassBridge {
 
     private static boolean checkPresent() {
         try {
+            // ReGlass's custom GLSL pipelines cannot be compiled by VulkanMod's
+            // GLSL->SPIR-V converter (parseUniformField IllegalStateException,
+            // crash at startup) - hard conflict. Only use ReGlass when the game
+            // runs the vanilla renderer.
+            if (FabricLoader.getInstance().isModLoaded("vulkanmod")) return false;
             return FabricLoader.getInstance().isModLoaded("reglass");
         } catch (Throwable t) {
             return false;

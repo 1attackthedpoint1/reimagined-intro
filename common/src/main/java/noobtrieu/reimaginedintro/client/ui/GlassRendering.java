@@ -40,10 +40,14 @@ public final class GlassRendering {
         return (na << 24) | (color & 0x00FFFFFF);
     }
 
-    /** True when the menu video background can be sampled as the glass body. */
+    /**
+     * Disabled: the per-scanline video-sampling lens (v3.9.0) caused a giant
+     * brown block under VulkanMod - raw-texture blits misrender there, and
+     * ReGlass (the reference) cannot run under VulkanMod either (shader
+     * compile crash). The capsule glass is the VulkanMod-safe material.
+     */
     private static boolean videoGlass() {
-        return Minecraft.getInstance().level == null
-            && ModConfig.get().enableTitleScreenLoop && FrameStreamer.isReady();
+        return false;
     }
 
     /** Cover-crop UV mapping of the video background (same math as the menu background). */
