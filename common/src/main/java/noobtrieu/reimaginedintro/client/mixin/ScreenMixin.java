@@ -8,7 +8,6 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.input.KeyEvent;
 import noobtrieu.reimaginedintro.client.IntroManager;
 import noobtrieu.reimaginedintro.client.IntroScreen;
-import noobtrieu.reimaginedintro.client.transition.EnterWorldTransition;
 import noobtrieu.reimaginedintro.client.transition.ScreenTransitions;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -53,7 +52,5 @@ public abstract class ScreenMixin {
     @Inject(method = "renderWithTooltipAndSubtitles", at = @At("TAIL"))
     private void reimaginedIntro$transitionRenderTail(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         ScreenTransitions.onRenderTail((Screen) (Object) this, guiGraphics, mouseX, mouseY, partialTick);
-        // Enter-world reversed-intro overlay draws over the level loading screen
-        EnterWorldTransition.onScreenRenderTail((Screen) (Object) this, guiGraphics);
     }
 }

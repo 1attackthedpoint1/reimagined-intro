@@ -36,7 +36,7 @@ public class ModConfigScreen extends Screen {
     protected void init() {
         int centerX = this.width / 2;
         int spacing = this.height < 320 ? 21 : 24;
-        int startY = Math.max(10, (this.height - (10 * spacing + 72)) / 2);
+        int startY = Math.max(10, (this.height - (8 * spacing + 72)) / 2);
 
         // 1. Startup Intro Toggle
         this.addRenderableWidget(
@@ -124,21 +124,13 @@ public class ModConfigScreen extends Screen {
                 })
         );
 
-        // 10. Reverse intro on world enter
-        this.addRenderableWidget(
-            CycleButton.booleanBuilder(Component.literal("§aYes"), Component.literal("§cNo"), ModConfig.get().reverseIntroOnWorldEnter)
-                .create(centerX - 100, startY + 8 * spacing, 200, 20, Component.literal("Enter-World Reversed Intro"), (btn, val) -> {
-                    ModConfig.get().reverseIntroOnWorldEnter = val;
-                })
-        );
-
         // 9. Test / Preview Intro button
         this.addRenderableWidget(
             Button.builder(Component.literal("Preview Intro Sequence"), b -> {
                 ModConfig.save();
                 IntroManager.resetForReplay();
                 Minecraft.getInstance().setScreen(new IntroScreen());
-            }).bounds(centerX - 100, startY + 9 * spacing, 200, 20).build()
+            }).bounds(centerX - 100, startY + 8 * spacing, 200, 20).build()
         );
 
         // 6. Done Button

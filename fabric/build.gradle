@@ -52,10 +52,6 @@ dependencies {
     // modmenu is an intermediary-remapped mod: loom's modCompileOnly remaps it
     // to the current (mojmap) namespace so its Screen references resolve.
     modCompileOnly("com.terraformersmc:modmenu:17.0.1")
-    // ReGlass is an intermediary-remapped mod jar: loom's modCompileOnly remaps
-    // it to the current (mojmap) namespace so its API types resolve. Optional
-    // at runtime - GlassBridge guards every call.
-    modCompileOnly(files('../libs/reglass-1.21.11-2.1.1.jar'))
 }
 
 loom {

@@ -2,7 +2,6 @@ package noobtrieu.reimaginedintro.client.mixin;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import noobtrieu.reimaginedintro.client.transition.EnterWorldTransition;
 import noobtrieu.reimaginedintro.client.transition.ScreenTransitions;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -30,9 +29,5 @@ public class MinecraftMixin {
     @Inject(method = "setScreen", at = @At("TAIL"))
     private void reimaginedIntro$afterSetScreen(Screen newScreen, CallbackInfo ci) {
         ScreenTransitions.onAfterSetScreen();
-        // The vanilla "world ready" moment clears the screen; if the reversed
-        // intro was covering the load, swap in the reveal screen instead so
-        // the logo page -> game expansion plays over the live world.
-        EnterWorldTransition.onSetScreenDone(newScreen);
     }
 }
