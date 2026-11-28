@@ -3,8 +3,13 @@ package noobtrieu.reimaginedintro.client.transition;
 import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.GenericMessageScreen;
 import net.minecraft.client.gui.screens.LevelLoadingScreen;
+import net.minecraft.client.gui.screens.ProgressScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
+import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import noobtrieu.reimaginedintro.client.FrameStreamer;
 import noobtrieu.reimaginedintro.client.config.ModConfig;
 
@@ -17,6 +22,13 @@ import noobtrieu.reimaginedintro.client.config.ModConfig;
  * logo's rect is covered by a dark panel (world still loading) that becomes a
  * LIVE WINDOW into the entering game once the world is ready, then expands to
  * fullscreen.
+ *
+ * The 1.21.11 enter-world screen chain (verified from the live log):
+ * SelectWorldScreen -> GenericMessageScreen (~2 s) -> ProgressScreen (the
+ * vanilla mojang-red page) -> world ready. LevelLoadingScreen is NEVER used
+ * for singleplayer enter on this version. The overlay covers the whole
+ * chain from the click onward; the first reversed frame is the menu scene,
+ * so the hand-off from the world-select menu is visually continuous.
  *
  * Logo page measured from the intro frames (2560x1440): frames 1..76 are one
  * STATIC full-red page with white text at u 0.223..0.783 / v 0.389..0.539;
@@ -43,6 +55,28 @@ public final class EnterWorldTransition {
     private static boolean armed;   // LevelLoadingScreen was seen; overlay may run
     private static boolean active;  // overlay is rendering
 
+    /**
+     * True when a setScreen call is the START of a singleplayer world enter:
+     * coming from a world-launcher screen (select/create/title quick-play)
+     * with no level loaded, heading into one of the load screens.
+     */
+    public static boolean shouldArm(Screen next, Screen active) {
+        if (next == null || active == null) return false;
+        if (Minecraft.getInstance().level != null) return false;
+        boolean fromLauncher = active instanceof SelectWorldScreen
+            || active instanceof CreateWorldScreen
+            || active instanceof TitleScreen;
+        if (!fromLauncher) return false;
+        return isCoveredLoadScreen(next);
+    }
+
+    /** The screens the reversed-intro overlay fully covers during a world load. */
+    static boolean isCoveredLoadScreen(Screen s) {
+        return s instanceof GenericMessageScreen
+            || s instanceof ProgressScreen
+            || s instanceof LevelLoadingScreen;
+    }
+
     /** Arms the transition if enabled. Returns true when armed. */
     public static boolean arm() {
         if (!ModConfig.get().reverseIntroOnWorldEnter) return false;
@@ -64,7 +98,7 @@ public final class EnterWorldTransition {
      */
     public static void onScreenRenderTail(Screen screen, GuiGraphics g) {
         if (!armed) return;
-        if (!(screen instanceof LevelLoadingScreen)) {
+        if (!isCoveredLoadScreen(screen)) {
             // Load cancelled/failed and another screen took over - disarm
             // silently so we never overlay unrelated screens.
             armed = false;

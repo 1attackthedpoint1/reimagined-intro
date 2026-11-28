@@ -26,6 +26,8 @@ public class GameRevealScreen extends Screen {
 
     private final long videoRemainingMs;
     private final long startMs = Util.getMillis();
+    private long videoDoneAtMs;
+    private boolean videoDone;
     private boolean finished;
 
     public GameRevealScreen(long videoRemainingMs) {
@@ -59,8 +61,15 @@ public class GameRevealScreen extends Screen {
             EnterWorldTransition.drawReversedFrame(g, false);
             return;
         }
+        if (!videoDone) {
+            videoDone = true;
+            videoDoneAtMs = Util.getMillis();
+        }
 
-        long after = elapsed - videoRemainingMs;
+        // Hold timing counts from the moment the VIDEO finished, not the
+        // wall clock - load hitches pause the video, and the hold must still
+        // be a real beat.
+        long after = Util.getMillis() - videoDoneAtMs;
         float expand = clamp01((after - HOLD_MS) / (float) EXPAND_MS);
         float e = 1.0f - (float) Math.pow(1.0f - expand, 3.0f); // ease-out cubic
 

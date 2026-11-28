@@ -64,7 +64,18 @@ public class FrameStreamer {
 
     public static void update(long elapsedMs) {
         if (!initialized) init();
-        reversedActive = false; // forward session takes over
+        if (reversedActive) {
+            // A forward session starting = the reversed session is over
+            // (cancelled load / back to menu). Free any parked rev frames.
+            reversedActive = false;
+            predecodedCache.entrySet().removeIf(entry -> {
+                if (entry.getKey().startsWith("r_")) {
+                    entry.getValue().close();
+                    return true;
+                }
+                return false;
+            });
+        }
 
         boolean inLoop = elapsedMs >= INTRO_TOTAL_DURATION_MS;
         int targetFrame;
@@ -205,6 +216,13 @@ public class FrameStreamer {
      */
     public static synchronized void preDecodeReversed() {
         ensureRevTexture();
+        // The session is ACTIVE from the queueing moment: memory-gated workers
+        // park (instead of bailing) while the cap holds and the loading screen
+        // has not rendered yet. (v3.7.12 bug: workers bailed on
+        // reversedActive==false during the arm -> first-render gap and drained
+        // the whole decode queue in ~40 ms.)
+        reversedActive = true;
+        if (revLastAdvanceMs == 0) revLastAdvanceMs = net.minecraft.util.Util.getMillis();
         for (int f = INTRO_FRAME_COUNT - 1; f > REVERSED_STATIC_FRAME; f--) {
             final int frame = f;
             if (predecodedCache.containsKey(cacheKeyRev(frame))) continue;

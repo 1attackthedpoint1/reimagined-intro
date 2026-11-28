@@ -103,13 +103,15 @@ public final class ScreenTransitions {
         if (next instanceof IntroScreen) return false; // intro owns its transitions
         if (MinecraftAccessorBridge.getActiveScreen() instanceof IntroScreen) return false;
 
-        // Entering a world: the reversed-intro overlay covers the level
-        // loading screen entirely. Initial entry only (level == null) - the
-        // nether-portal variant of this screen appears in-game and is left
-        // alone. Arm first, then step aside (returns false untouched when the
-        // feature is disabled in the config).
-        if (next instanceof net.minecraft.client.gui.screens.LevelLoadingScreen
-            && Minecraft.getInstance().level == null) {
+        // Entering a world: the reversed-intro overlay covers the whole load
+        // sequence (GenericMessageScreen -> ProgressScreen). 1.21.11 single-
+        // player enter NEVER shows LevelLoadingScreen - verified against the
+        // live log: SelectWorld -> class_424 GenericMessageScreen -> class_435
+        // ProgressScreen -> in-game. The arm predicate lives in
+        // EnterWorldTransition.shouldArm; when armed we also skip the menu
+        // morph (the click hand-off must be seamless and morphs hitch under
+        // world-load).
+        if (EnterWorldTransition.shouldArm(next, MinecraftAccessorBridge.getActiveScreen())) {
             if (EnterWorldTransition.arm()) {
                 if (phase != Phase.IDLE || fluidArmed) abandon(); // drop any half-played menu morph
                 return false;
