@@ -18,10 +18,10 @@ import noobtrieu.reimaginedintro.client.config.ModConfig;
  * LIVE WINDOW into the entering game once the world is ready, then expands to
  * fullscreen.
  *
- * Logo geometry measured from the intro frames (2560x1440): the bright logo
- * blob sits at x 552..2008, y 512..896 over frames 1..76; the morph away from
- * the logo page starts at frame ~77. Padded rect in video UV:
- * u 0.195..0.805, v 0.326..0.660.
+ * Logo page measured from the intro frames (2560x1440): frames 1..76 are one
+ * STATIC full-red page with white text at u 0.223..0.783 / v 0.389..0.539;
+ * the morph away starts at ~77. The replacement window is a large centered
+ * 16:9 rect (u 0.17..0.83 / v 0.278..0.650) containing the text.
  */
 public final class EnterWorldTransition {
     private EnterWorldTransition() {
@@ -29,9 +29,16 @@ public final class EnterWorldTransition {
 
     /** Last frame of the static logo page (morph starts after this). */
     public static final int LOGO_LAST_FRAME = 76;
-    /** Logo rect in video UV (cover-crop mapping applies on top). */
-    public static final float LOGO_U0 = 500 / 2560.0f, LOGO_U1 = 2060 / 2560.0f;
-    public static final float LOGO_V0 = 470 / 1440.0f, LOGO_V1 = 950 / 1440.0f;
+    /**
+     * Window rect in video UV that replaces the Mojang mark. The logo page is
+     * a FULL-RED screen with white text at u 0.223..0.783 / v 0.389..0.539,
+     * so a white-text-sized window reads as a tiny patch. This is a large
+     * centered 16:9 window (66% wide, 37% tall, red band left as the page
+     * frame) that fully contains the text with generous margin - the "logo
+     * replaced by a big screen showing the game" look.
+     */
+    public static final float LOGO_U0 = 0.17f, LOGO_U1 = 0.83f;
+    public static final float LOGO_V0 = 0.278f, LOGO_V1 = 0.650f;
 
     private static boolean armed;   // LevelLoadingScreen was seen; overlay may run
     private static boolean active;  // overlay is rendering
@@ -47,17 +54,6 @@ public final class EnterWorldTransition {
 
     public static boolean isArmed() {
         return armed;
-    }
-
-    /** Reversed elapsed -> frame index (1..INTRO_FRAME_COUNT). */
-    static int frameFor(long elapsedMs) {
-        int f = FrameStreamer.INTRO_FRAME_COUNT - (int) (elapsedMs / FrameStreamer.FRAME_DURATION_MS);
-        return f < 1 ? 1 : f;
-    }
-
-    /** True once the reversed playback has reached the logo-page frames. */
-    static boolean inLogoPhase(long elapsedMs) {
-        return frameFor(elapsedMs) <= LOGO_LAST_FRAME;
     }
 
     /**
@@ -148,7 +144,9 @@ public final class EnterWorldTransition {
         int w = (int) g.guiWidth();
         int h = (int) g.guiHeight();
 
-        if (!inLogoPhase(elapsed)) {
+        // Position-based phase: skip-aheads may put the picture on the logo
+        // page before the wall clock gets there - trust the picture.
+        if (!FrameStreamer.reversedAtLogoPage()) {
             // Pre-logo frames: fullscreen video, no window yet. One band over
             // the whole screen = exactly the intro screen's cover look.
             float[] m = coverMap(w, h);

@@ -64,6 +64,7 @@ public class FrameStreamer {
 
     public static void update(long elapsedMs) {
         if (!initialized) init();
+        reversedActive = false; // forward session takes over
 
         boolean inLoop = elapsedMs >= INTRO_TOTAL_DURATION_MS;
         int targetFrame;
@@ -96,21 +97,64 @@ public class FrameStreamer {
     }
 
     /**
+     * Frames 1..76 of the intro are ONE static image (the full-red logo page)
+     * - measured identical across the range. Reversed playback clamps to
+     * frame 76 for the whole logo phase: the page costs a single decode.
+     */
+    public static final int REVERSED_STATIC_FRAME = 76;
+
+    /** Reversed-prefetch lead: frames decoded ahead of playback. */
+    private static final int REVERSE_LEAD = 12;
+
+    /** Wall-clock time consumed by skip-aheads, so the timeline stays monotonic. */
+    private static long reverseSkipMs;
+    /** True while the reversed session is active (startReverse .. forward update/cleanup). */
+    private static boolean reversedActive;
+
+    /**
      * Reversed intro playback (enter-world transition): plays intro frames
      * INTRO_FRAME_COUNT -> 1 at the original pacing. Intro frames were freed
      * after startup; they are re-decoded from the jar on demand.
+     *
+     * Stall-proofing (decode cannot always keep 25 fps of 1440p JPGs while
+     * the world loads): a cache miss does NOT block - playback skips ahead to
+     * the nearest already-decoded frame (the video fast-forwards instead of
+     * freezing), and only a fully cold cache falls back to a sync decode.
      */
     public static synchronized void updateReversed(long elapsedMs) {
         if (!initialized) init();
         isLoopingPhase = false;
 
-        int targetFrame = INTRO_FRAME_COUNT - (int) (elapsedMs / FRAME_DURATION_MS);
+        // Skip-ahead shortens the timeline by the skipped frames' duration so
+        // the next tick's target lands right behind the skipped position -
+        // playback stays monotonic (never steps back up).
+        int targetFrame = INTRO_FRAME_COUNT - (int) ((elapsedMs - reverseSkipMs) / FRAME_DURATION_MS);
         if (targetFrame < 1) targetFrame = 1;
-        final int frame = targetFrame;
+        // Logo phase (frames 1..76) is one static image: clamp to it.
+        int uploadFrame = targetFrame <= REVERSED_STATIC_FRAME ? REVERSED_STATIC_FRAME : targetFrame;
+        final int frame = uploadFrame;
 
-        if (targetFrame != lastUploadedFrame) {
-            uploadFrame(false, targetFrame);
-            lastUploadedFrame = targetFrame;
+        if (uploadFrame != lastUploadedFrame) {
+            // Skip-ahead on cache miss: jump to the nearest decoded frame we
+            // have not played yet (index <= target = further along the
+            // reversed timeline) instead of stalling on a synchronous decode.
+            if (!predecodedCache.containsKey(cacheKey(false, uploadFrame))) {
+                int best = -1;
+                for (String key : predecodedCache.keySet()) {
+                    if (!key.startsWith("i_")) continue;
+                    try {
+                        int f = Integer.parseInt(key.substring(2));
+                        if (f <= uploadFrame && f > best && f != lastUploadedFrame) best = f;
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (best > 0) {
+                    reverseSkipMs += (uploadFrame - best) * FRAME_DURATION_MS;
+                    uploadFrame = best;
+                }
+            }
+            uploadFrame(false, uploadFrame);
+            lastUploadedFrame = uploadFrame;
 
             // Reversed playback walks downward: anything ABOVE the current
             // index is already played and gets freed. Loop cache is untouched.
@@ -128,8 +172,13 @@ public class FrameStreamer {
                 return false;
             });
 
-            // Prefetch the frames we are about to play (index going down)
-            prefetchUpcoming(false, Math.max(1, targetFrame - 4), Math.max(1, targetFrame - 1));
+            // Prefetch the frames we are about to play (index going down);
+            // nothing below the static frame is ever needed.
+            int pfEnd = Math.max(uploadFrame - 1, REVERSED_STATIC_FRAME);
+            int pfStart = Math.max(uploadFrame - REVERSE_LEAD, REVERSED_STATIC_FRAME);
+            if (pfEnd >= pfStart) {
+                prefetchUpcoming(false, pfStart, pfEnd);
+            }
         }
     }
 
@@ -137,9 +186,20 @@ public class FrameStreamer {
     public static synchronized void startReverse() {
         if (!initialized) init();
         isLoopingPhase = false;
+        reversedActive = true;
+        reverseSkipMs = 0;
         uploadFrame(false, INTRO_FRAME_COUNT);
         lastUploadedFrame = INTRO_FRAME_COUNT;
-        prefetchUpcoming(false, INTRO_FRAME_COUNT - 4, INTRO_FRAME_COUNT - 1);
+        prefetchUpcoming(false, INTRO_FRAME_COUNT - REVERSE_LEAD, INTRO_FRAME_COUNT - 1);
+    }
+
+    /**
+     * True when the reversed playback has actually reached the static logo
+     * page (position-based, robust to skip-aheads: the window opens when the
+     * picture IS the logo page, not when the clock says so).
+     */
+    public static boolean reversedAtLogoPage() {
+        return reversedActive && lastUploadedFrame > 0 && lastUploadedFrame <= REVERSED_STATIC_FRAME;
     }
 
     private static void pruneStaleFrames(boolean isLoop, int currentFrame) {
