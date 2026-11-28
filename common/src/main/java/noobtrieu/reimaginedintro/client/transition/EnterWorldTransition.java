@@ -42,7 +42,6 @@ public final class EnterWorldTransition {
 
     private static boolean armed;   // LevelLoadingScreen was seen; overlay may run
     private static boolean active;  // overlay is rendering
-    private static long startMs;
 
     /** Arms the transition if enabled. Returns true when armed. */
     public static boolean arm() {
@@ -74,13 +73,13 @@ public final class EnterWorldTransition {
         }
         if (!active) {
             active = true;
-            startMs = Util.getMillis();
             FrameStreamer.startReverse();
         }
 
-        long elapsed = Util.getMillis() - startMs;
-        FrameStreamer.updateReversed(elapsed);
-        drawReversedFrame(g, elapsed, true);
+        // The reversed clock is the FrameStreamer's own (freeze-with-the-game,
+        // capped advances) - immune to world-load hitches.
+        FrameStreamer.updateReversed();
+        drawReversedFrame(g, true);
     }
 
     /**
@@ -98,7 +97,15 @@ public final class EnterWorldTransition {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return; // not a world-ready moment
 
-        long videoRemaining = wasActive ? Math.max(0, FrameStreamer.INTRO_TOTAL_DURATION_MS - (Util.getMillis() - startMs)) : FrameStreamer.INTRO_TOTAL_DURATION_MS;
+        long videoRemaining;
+        if (wasActive) {
+            videoRemaining = FrameStreamer.reversedRemainingMs();
+        } else {
+            // Load finished before the loading screen ever rendered: start
+            // the (skippable) ceremony now so the reveal screen can play it.
+            FrameStreamer.startReverse();
+            videoRemaining = FrameStreamer.INTRO_TOTAL_DURATION_MS;
+        }
         mc.setScreen(new GameRevealScreen(videoRemaining));
     }
 
@@ -143,7 +150,7 @@ public final class EnterWorldTransition {
      * for the caller to fill (dark panel while loading, live game once the
      * world is up - GameRevealScreen just leaves it transparent).
      */
-    static void drawReversedFrame(GuiGraphics g, long elapsed, boolean fillLogoWithPanel) {
+    static void drawReversedFrame(GuiGraphics g, boolean fillLogoWithPanel) {
         int w = (int) g.guiWidth();
         int h = (int) g.guiHeight();
 
@@ -170,7 +177,7 @@ public final class EnterWorldTransition {
             // Dark panel + pulsing border where the logo would be: the loading
             // page look, logo replaced by the (not yet live) game view.
             g.fill(lx0, ly0, lx1, ly1, 0xFF090404);
-            float pulse = 0.5f + 0.5f * (float) Math.sin((elapsed % 2400) / 2400.0 * Math.PI * 2);
+            float pulse = 0.5f + 0.5f * (float) Math.sin((Util.getMillis() % 2400) / 2400.0 * Math.PI * 2);
             int border = ((int) (0x38 + 0x30 * pulse)) << 24 | 0xFFFFFF;
             g.fill(lx0, ly0, lx1, ly0 + 1, border);
             g.fill(lx0, ly1 - 1, lx1, ly1, border);

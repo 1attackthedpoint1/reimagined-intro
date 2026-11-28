@@ -50,13 +50,13 @@ public class GameRevealScreen extends Screen {
         int w = (int) g.guiWidth();
         int h = (int) g.guiHeight();
 
-        if (elapsed < videoRemainingMs) {
+        FrameStreamer.updateReversed(); // freeze-with-the-game clock
+        long remaining = FrameStreamer.reversedRemainingMs();
+        if (remaining > 0) {
             // Finish the reversed intro first. Logo-page frames are drawn in
             // bands so the logo rect stays open - the live game is already
             // visible behind this screen.
-            long introElapsed = FrameStreamer.INTRO_TOTAL_DURATION_MS - (videoRemainingMs - elapsed);
-            FrameStreamer.updateReversed(introElapsed);
-            EnterWorldTransition.drawReversedFrame(g, introElapsed, false);
+            EnterWorldTransition.drawReversedFrame(g, false);
             return;
         }
 
@@ -73,7 +73,6 @@ public class GameRevealScreen extends Screen {
         // The logo page keeps playing as the backdrop (held final frame),
         // in bands around the EXPANDING window so the video shrinks away in
         // sync as the live game takes over. Window left transparent.
-        FrameStreamer.updateReversed(FrameStreamer.INTRO_TOTAL_DURATION_MS);
         EnterWorldTransition.drawVideoBandsAround(g, x0, y0, x1, y1);
 
         if (expand < 1.0f) {

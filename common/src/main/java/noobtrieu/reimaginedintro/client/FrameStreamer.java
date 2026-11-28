@@ -136,6 +136,29 @@ public class FrameStreamer {
     /** True while the reversed session is active. */
     private static boolean reversedActive;
 
+    /**
+     * The reversed video's OWN clock, advanced per render tick by the real
+     * delta CAPPED at 50 ms. Rationale: world loading hitches the RENDER
+     * THREAD itself (chunk building eats every core); while the game freezes
+     * the wall clock keeps running, and on recovery the old wall-clock
+     * playback would burn several frames at once ("stuck, then it jumps").
+     * With this clock the video freezes WITH the game and resumes exactly
+     * where it froze - the transition may stretch in wall time, but never
+     * skips content.
+     */
+    private static long revVideoTimeMs;
+    private static long revLastAdvanceMs;
+
+    /** Per-render-tick max video-time advance (ms). */
+    private static final long REVERSE_TICK_CAP_MS = 50;
+
+    // session diagnostics (one INFO summary per transition)
+    private static int revFramesPlayed;
+    private static int revHoldEvents;
+    private static int revSkipEvents;
+    private static long revWallStartMs;
+    private static boolean revSummaryLogged;
+
     private static void ensureRevTexture() {
         if (revInitialized) return;
         NativeImage first = loadReversedFrame(INTRO_FRAME_COUNT);
@@ -212,7 +235,29 @@ public class FrameStreamer {
      * the current picture up to 250 ms, then playback skips minimally to the
      * nearest decoded frame at/below the target.
      */
-    public static synchronized void updateReversed(long elapsedMs) {
+    public static synchronized void updateReversed() {
+        if (!reversedActive) return;
+        long now = net.minecraft.util.Util.getMillis();
+        long delta = now - revLastAdvanceMs;
+        revLastAdvanceMs = now;
+        if (delta > 0) {
+            revVideoTimeMs += Math.min(delta, REVERSE_TICK_CAP_MS);
+            if (revVideoTimeMs > INTRO_TOTAL_DURATION_MS) revVideoTimeMs = INTRO_TOTAL_DURATION_MS;
+        }
+        updateReversedAt(revVideoTimeMs);
+    }
+
+    /** Video-time position of the reversed playback (0..INTRO_TOTAL_DURATION_MS). */
+    public static long reversedElapsedMs() {
+        return revVideoTimeMs;
+    }
+
+    /** Video-time left in the reversed session (0 when inactive/finished). */
+    public static long reversedRemainingMs() {
+        return reversedActive ? Math.max(0, INTRO_TOTAL_DURATION_MS - revVideoTimeMs) : 0;
+    }
+
+    private static void updateReversedAt(long elapsedMs) {
         ensureRevTexture();
         isLoopingPhase = false;
 
@@ -228,6 +273,7 @@ public class FrameStreamer {
             long now = net.minecraft.util.Util.getMillis();
             if (reverseHoldSinceMs == 0) {
                 reverseHoldSinceMs = now;
+                revHoldEvents++;
                 return; // keep the last picture one more beat
             }
             if (now - reverseHoldSinceMs < REVERSE_MAX_HOLD_MS) return;
@@ -241,18 +287,29 @@ public class FrameStreamer {
                 }
             }
             if (best <= 0) return; // nothing ready below: keep holding
+            if (best < targetFrame) {
+                revSkipEvents++;
+                ReimaginedIntro.LOGGER.warn("[ReimaginedIntro/REV] skipped ahead {} frames (target={} best={})", targetFrame - best, targetFrame, best);
+            }
             uploadFrame = best;
             image = predecodedCache.remove(cacheKeyRev(uploadFrame));
         } else {
             image = predecodedCache.remove(cacheKeyRev(uploadFrame));
         }
         reverseHoldSinceMs = 0;
+        revFramesPlayed++;
 
         if (image != null && revTexture != null) {
             revTexture.setPixels(image);
             revTexture.upload();
         }
         lastUploadedFrame = uploadFrame;
+
+        if (!revSummaryLogged && revVideoTimeMs >= INTRO_TOTAL_DURATION_MS) {
+            revSummaryLogged = true;
+            ReimaginedIntro.LOGGER.info("[ReimaginedIntro/REV] reversed video finished: framesPlayed={} holds={} skips={} wallTime={}ms",
+                revFramesPlayed, revHoldEvents, revSkipEvents, net.minecraft.util.Util.getMillis() - revWallStartMs);
+        }
 
         // Reversed playback walks downward: anything ABOVE the current index
         // is already played and gets freed. Intro/loop caches are untouched.
@@ -281,6 +338,13 @@ public class FrameStreamer {
         isLoopingPhase = false;
         reversedActive = true;
         reverseHoldSinceMs = 0;
+        revVideoTimeMs = 0;
+        revLastAdvanceMs = net.minecraft.util.Util.getMillis();
+        revFramesPlayed = 0;
+        revHoldEvents = 0;
+        revSkipEvents = 0;
+        revWallStartMs = revLastAdvanceMs;
+        revSummaryLogged = false;
         NativeImage first = predecodedCache.remove(cacheKeyRev(INTRO_FRAME_COUNT));
         if (first == null) {
             first = loadReversedFrame(INTRO_FRAME_COUNT);
