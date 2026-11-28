@@ -12,7 +12,8 @@
                 "MenuBackgroundMixin",
                 "GlassButtonsMixin",
                 "GlassSliderMixin",
-		"WidgetGateMixin"
+		"WidgetGateMixin",
+		"ListRevealMixin"
         ],
         "injectors": {
                 "defaultRequire": 1

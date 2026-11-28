@@ -79,6 +79,10 @@ public final class ScreenTransitions {
     private static boolean flightRendering;
     /** Bounds (x,y,w,h) of the incoming screen's selection list, if any - the reveal covers only this rect. */
     private static int[] listRect;
+    /** The incoming screen's selection-list widget itself - the scissor gate matches by identity. */
+    private static AbstractWidget revealList;
+    /** Scissor depth pushed by ListRevealMixin (0 = none). */
+    private static int revealScissorDepth;
     private static boolean morphLogged;
     /** Source button rects of the outgoing screen, reading order. */
     private static List<int[]> morphSources;
@@ -177,6 +181,7 @@ public final class ScreenTransitions {
         boolean incomingList = hasSelectionList(incoming);
         List<AbstractWidget> targets = collectButtons(incoming);
         List<AbstractWidget> lists = collectWidgets(incoming, new ArrayList<>(), true);
+        revealList = lists.isEmpty() ? null : lists.get(0);
         listRect = lists.isEmpty() ? null
             : new int[]{lists.get(0).getX(), lists.get(0).getY(), lists.get(0).getWidth(), lists.get(0).getHeight()};
         boolean canMorph = morphSources != null && !morphSources.isEmpty() && !targets.isEmpty();
@@ -440,6 +445,7 @@ public final class ScreenTransitions {
         morphLogged = false;
         transitionInGame = false;
         listRect = null;
+        revealList = null;
         clearMorph();
     }
 
@@ -452,6 +458,28 @@ public final class ScreenTransitions {
     // -------------------------------------------------------------------------
     // FLUID internals
     // -------------------------------------------------------------------------
+
+    /**
+     * Scissor gate for the incoming list during a reveal (called by
+     * ListRevealMixin at the list's renderWidget HEAD). Clips entries to the
+     * swept region so the reveal is visible even if the video cover fails.
+     */
+    public static void pushRevealScissor(GuiGraphics g, AbstractSelectionList<?> list) {
+        if (phase != Phase.B || !fluidWipe || revealList == null || revealList != list || listRect == null) return;
+        float e = clamp01((progress() - 0.5f) * 2.0f);
+        int lx = listRect[0], ly = listRect[1], lw = listRect[2], lh = listRect[3];
+        int edge = Math.round(lh * ease(e));
+        if (edge >= lh) return; // reveal finished - no clip needed
+        g.enableScissor(lx, ly, lx + lw, ly + edge);
+        revealScissorDepth++;
+    }
+
+    public static void popRevealScissor(GuiGraphics g) {
+        if (revealScissorDepth > 0) {
+            revealScissorDepth--;
+            g.disableScissor();
+        }
+    }
 
     private static boolean videoAvailable() {
         if (transitionInGame) return true; // in-game reveal uses a dark scrim, not the menu video
@@ -749,7 +777,7 @@ public final class ScreenTransitions {
 
     /** Glass body color for liquid necks, at the given flight alpha. */
     private static int glassBody(float fly) {
-        int a = Math.round(0x5A * Math.max(0.0f, Math.min(1.0f, fly)));
+        int a = Math.round(0x38 * Math.max(0.0f, Math.min(1.0f, fly)));
         return (a << 24) | 0xFFFFFF;
     }
 
