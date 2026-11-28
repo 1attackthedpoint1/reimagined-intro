@@ -31,7 +31,7 @@ public abstract class GlassSliderMixin extends AbstractWidget {
     private static boolean shouldGlass() {
         // Liquid-glass theme applies EVERYWHERE (menus + in-game) so morph
         // droplets and settled buttons always share the same material.
-        return ModConfig.get().glassButtons;
+        return ModConfig.get().glassButtons && !noobtrieu.reimaginedintro.client.ui.GlassBridge.present(); // ReGlass owns the material
     }
 
     @Inject(method = "renderWidget", at = @At("HEAD"))

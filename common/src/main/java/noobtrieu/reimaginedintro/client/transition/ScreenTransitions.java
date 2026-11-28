@@ -14,6 +14,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import noobtrieu.reimaginedintro.ReimaginedIntro;
 import noobtrieu.reimaginedintro.client.FrameStreamer;
+import noobtrieu.reimaginedintro.client.ui.GlassBridge;
 import noobtrieu.reimaginedintro.client.IntroScreen;
 import noobtrieu.reimaginedintro.client.config.ModConfig;
 import noobtrieu.reimaginedintro.client.ui.GlassRendering;
@@ -707,13 +708,21 @@ public final class ScreenTransitions {
                     GlassRendering.drawLiquidNeck(g, sx, sy, bx, by, srcR, dropR, pinch, glassBody(fly));
                     // Shrinking source cap
                     float fs = 1.0f - 0.35f * neckPhase;
-                    GlassRendering.drawButtonPanel(g,
-                        Math.round(sx - sw * fs / 2.0f), Math.round(sy - sh * fs / 2.0f),
-                        Math.round(sw * fs), Math.round(sh * fs), true, false, fly);
+                    int capW = Math.round(sw * fs), capH = Math.round(sh * fs);
+                    int capX = Math.round(sx - capW / 2.0f), capY = Math.round(sy - capH / 2.0f);
                     // Thick droplet head
-                    GlassRendering.drawButtonPanel(g,
-                        Math.round(bx - sw * 0.9f / 2.0f), Math.round(by - sh / 2.0f),
-                        Math.round(sw * 0.9f), Math.round(sh), true, false, fly);
+                    int dW = Math.round(sw * 0.9f), dH = Math.round(sh);
+                    int dX = Math.round(bx - dW / 2.0f), dY = Math.round(by - sh / 2.0f);
+                    if (GlassBridge.present()) {
+                        // Real liquid glass through ReGlass's SDF shader - the
+                        // droplets are blobs of refracting glass, same material
+                        // as the settled buttons.
+                        GlassBridge.renderGlass(g, capX, capY, capW, capH, 0.0f);
+                        GlassBridge.renderGlass(g, dX, dY, dW, dH, 0.0f);
+                    } else {
+                        GlassRendering.drawButtonPanel(g, capX, capY, capW, capH, true, false, fly);
+                        GlassRendering.drawButtonPanel(g, dX, dY, dW, dH, true, false, fly);
+                    }
                 } else {
                     // Broken off: fly and morph into the target button.
                     float ft = clamp01((ej - 0.45f) / 0.55f);
@@ -721,13 +730,22 @@ public final class ScreenTransitions {
                     float cy = sy + (ty - sy) * ft - (float) Math.sin(ft * Math.PI) * 14.0f;
                     float bw = sw + (tw - sw) * ft;
                     float bh = sh + (th - sh) * ft;
-                    GlassRendering.drawButtonPanel(g,
-                        Math.round(cx - bw / 2.0f), Math.round(cy - bh / 2.0f),
-                        Math.round(bw), Math.round(bh), true, false, fly);
-                    if (ft > 0.3f && target.getMessage() != null) {
-                        int alpha = (int) Math.round(clamp01((ft - 0.3f) / 0.5f) * 255.0f * Math.max(fly, 0.4f));
-                        g.drawCenteredString(Minecraft.getInstance().font, target.getMessage(),
-                            Math.round(cx), Math.round(cy - bh / 2.0f) + Math.round(bh / 2.0f) - 4, (alpha << 24) | 0xFFFFFF);
+                    int bW = Math.round(bw), bH = Math.round(bh);
+                    int bX = Math.round(cx - bw / 2.0f), bY = Math.round(cy - bh / 2.0f);
+                    if (GlassBridge.present()) {
+                        GlassBridge.renderGlass(g, bX, bY, bW, bH, 0.0f);
+                        if (ft > 0.3f && target.getMessage() != null) {
+                            int alpha = (int) Math.round(clamp01((ft - 0.3f) / 0.5f) * 255.0f * Math.max(fly, 0.4f));
+                            g.drawCenteredString(Minecraft.getInstance().font, target.getMessage(),
+                                Math.round(cx), Math.round(cy - bh / 2.0f) + Math.round(bh / 2.0f) - 4, (alpha << 24) | 0xFFFFFF);
+                        }
+                    } else {
+                        GlassRendering.drawButtonPanel(g, bX, bY, bW, bH, true, false, fly);
+                        if (ft > 0.3f && target.getMessage() != null) {
+                            int alpha = (int) Math.round(clamp01((ft - 0.3f) / 0.5f) * 255.0f * Math.max(fly, 0.4f));
+                            g.drawCenteredString(Minecraft.getInstance().font, target.getMessage(),
+                                Math.round(cx), Math.round(cy - bh / 2.0f) + Math.round(bh / 2.0f) - 4, (alpha << 24) | 0xFFFFFF);
+                        }
                     }
                 }
             } else {
@@ -746,9 +764,13 @@ public final class ScreenTransitions {
                         pos[k - a] = new float[]{cx, cy};
                         float kwf = kw + (tw * 0.7f - kw) * ej;
                         float khf = kh + (th * 0.7f - kh) * ej;
-                        GlassRendering.drawButtonPanel(g,
-                            Math.round(cx - kwf / 2.0f), Math.round(cy - khf / 2.0f),
-                            Math.round(kwf), Math.round(khf), true, false, fly);
+                        int kW = Math.round(kwf), kH = Math.round(khf);
+                        int kX = Math.round(cx - kwf / 2.0f), kY = Math.round(cy - khf / 2.0f);
+                        if (GlassBridge.present()) {
+                            GlassBridge.renderGlass(g, kX, kY, kW, kH, 0.0f);
+                        } else {
+                            GlassRendering.drawButtonPanel(g, kX, kY, kW, kH, true, false, fly);
+                        }
                         // Contact neck to the fusion point (thin: pinch 0.75)
                         float d = (float) Math.sqrt((tx - cx) * (tx - cx) + (ty - cy) * (ty - cy));
                         if (d < 90.0f && d > th * 0.5f) {
