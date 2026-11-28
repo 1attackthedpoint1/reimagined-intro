@@ -3,12 +3,16 @@ package noobtrieu.reimaginedintro.client.ui;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * Liquid-glass button rendering (iOS 26 "thick lens" recipe, adapted to the
- * vanilla GUI pipeline): the body stays fairly clear through the flat middle,
- * light bends at the rim - expressed as an asymmetric specular rim (bright
- * top-left facing the light), a dark inner shadow along the bottom-right edge,
- * a vertical gradient body and a glossy sheen band. Everything is pure
- * GuiGraphics fills, so it stays VulkanMod-safe by construction.
+ * Liquid-glass button rendering (iOS 26 "thick lens" recipe), pure GuiGraphics
+ * fills - VulkanMod-safe. The VLM critique of the first attempt nailed the
+ * recipe error: glass is a BRIGHT material, not a dark one. So:
+ * - bright translucent white body that takes the background colour through it
+ *   (frosted tint), never a dark plastic base;
+ * - full bright rim ring (light bends around the whole edge), strongest on the
+ *   top-left where the light comes from, with a corner hotspot;
+ * - big pill radius (~6px on 20px buttons) instead of 3px pixel steps;
+ * - a soft dark frost halo just outside the rim fakes backdrop blur/darkening
+ *   and lifts the glass off the background (suspension).
  */
 public final class GlassRendering {
     private GlassRendering() {
@@ -24,77 +28,116 @@ public final class GlassRendering {
         return (na << 24) | (color & 0x00FFFFFF);
     }
 
-    /** Rounded rectangle (radius ~3px, two-step staircase) via fill rectangles. */
-    public static void fillRounded(GuiGraphics g, int x, int y, int w, int h, int color) {
-        if (w <= 0 || h <= 0) return;
-        if (h < 6 || w < 6) {
-            g.fill(x, y, x + w, y + h, color);
-            return;
-        }
-        g.fill(x + 3, y, x + w - 3, y + 1, color);
-        g.fill(x + 1, y + 1, x + w - 1, y + 3, color);
-        g.fill(x, y + 3, x + w, y + h - 3, color);
-        g.fill(x + 1, y + h - 3, x + w - 1, y + h - 1, color);
-        g.fill(x + 3, y + h - 1, x + w - 3, y + h, color);
+    private static int boost(int color, float f) {
+        int a = (color >>> 24) & 0xFF;
+        int na = Math.min(255, Math.round(a * f));
+        return (na << 24) | (color & 0x00FFFFFF);
     }
 
     /**
-     * Liquid glass button panel. Same signature the mixins and the morph
-     * renderer already call, so the whole menu picks the new look up at once.
+     * Rounded rectangle with a ~6px pill radius (4-step staircase). Falls back
+     * to a plain fill for tiny rects.
+     */
+    public static void fillRounded(GuiGraphics g, int x, int y, int w, int h, int color) {
+        if (w <= 0 || h <= 0) return;
+        if (h < 12 || w < 12) { // small: 3px steps
+            if (h < 6 || w < 6) { g.fill(x, y, x + w, y + h, color); return; }
+            g.fill(x + 3, y, x + w - 3, y + 1, color);
+            g.fill(x + 1, y + 1, x + w - 1, y + 3, color);
+            g.fill(x, y + 3, x + w, y + h - 3, color);
+            g.fill(x + 1, y + h - 3, x + w - 1, y + h - 1, color);
+            g.fill(x + 3, y + h - 1, x + w - 3, y + h, color);
+            return;
+        }
+        // 6px pill corners
+        g.fill(x + 6, y, x + w - 6, y + 1, color);
+        g.fill(x + 3, y + 1, x + w - 3, y + 2, color);
+        g.fill(x + 1, y + 2, x + w - 1, y + 4, color);
+        g.fill(x, y + 4, x + w, y + h - 4, color);
+        g.fill(x + 1, y + h - 4, x + w - 1, y + h - 2, color);
+        g.fill(x + 3, y + h - 2, x + w - 3, y + h - 1, color);
+        g.fill(x + 6, y + h - 1, x + w - 6, y + h, color);
+    }
+
+    /**
+     * Liquid glass button panel - BRIGHT recipe. Same signature the mixins and
+     * the morph renderer call.
      */
     public static void drawButtonPanel(GuiGraphics g, int x, int y, int w, int h, boolean active, boolean hovered, float alpha) {
-        // Rim base: near-black ring, reads as the bent glass edge.
-        fillRounded(g, x, y, w, h, scaled(argb(0xC0, 0x05, 0x08, 0x0C), alpha));
+        float hv = hovered ? 1.25f : 1.0f;
 
-        // Glass body: vertical gradient - clear through the middle, denser at
-        // the bottom (thick-lens look instead of uniform frost).
-        int top = hovered ? argb(0x64, 0xFF, 0xFF, 0xFF) : argb(0x40, 0xFF, 0xFF, 0xFF);
-        int bot = hovered ? argb(0x30, 0xB8, 0xD2, 0xE8) : argb(0x20, 0x8A, 0xA8, 0xC8);
-        if (h >= 4 && w >= 4) {
-            g.fillGradient(x + 1, y + 1, x + w - 1, y + h - 1, scaled(top, alpha), scaled(bot, alpha));
+        // 1. Frost halo: soft dark ring just outside the rim - fakes the blur
+        //    darkening around the glass and lifts it off the background.
+        fillRounded(g, x - 1, y - 1, w + 2, h + 2, scaled(argb(0x30, 0x00, 0x0A, 0x14), alpha));
+
+        // 2. Glass body: BRIGHT translucent white - the background colour shows
+        //    through and tints it (frosted glass follows the backdrop).
+        fillRounded(g, x, y, w, h, scaled(boost(argb(0x5E, 0xFF, 0xFF, 0xFF), hv), alpha));
+
+        // 3. Vertical gradient inside the body: brighter top, clearer middle,
+        //    denser bottom (thick-lens banding) - drawn as inset bands so the
+        //    6px corners of layer 2 still define the silhouette.
+        if (h >= 10 && w >= 12) {
+            g.fillGradient(x + 3, y + 2, x + w - 3, y + h / 2,
+                scaled(boost(argb(0x54, 0xFF, 0xFF, 0xFF), hv), alpha),
+                scaled(argb(0x18, 0xFF, 0xFF, 0xFF), alpha));
+            g.fillGradient(x + 3, y + h / 2, x + w - 3, y + h - 3,
+                scaled(argb(0x18, 0xFF, 0xFF, 0xFF), alpha),
+                scaled(boost(argb(0x40, 0x9C, 0xC8, 0xE8), hv), alpha));
         }
 
-        // Asymmetric specular rim: bright edge facing the light (top + left).
-        if (h >= 6 && w >= 8) {
-            int rim = hovered ? argb(0xE0, 0xFF, 0xFF, 0xFF) : argb(0x96, 0xFF, 0xFF, 0xFF);
-            g.fill(x + 4, y + 1, x + w - 4, y + 2, scaled(rim, alpha));            // top
-            int leftRim = argb(hovered ? 0x70 : 0x46, 0xFF, 0xFF, 0xFF);
-            g.fill(x + 1, y + 4, x + 2, y + h - 4, scaled(leftRim, alpha));        // left (weaker)
-            // Dark inner shadow along the bottom-right (light bends away there).
-            g.fill(x + 3, y + h - 2, x + w - 3, y + h - 1, scaled(argb(0x70, 0x00, 0x10, 0x18), alpha));
-            g.fill(x + w - 2, y + 3, x + w - 1, y + h - 3, scaled(argb(0x48, 0x00, 0x10, 0x18), alpha));
+        // 4. Full bright rim ring - light bends around the WHOLE edge.
+        if (h >= 8 && w >= 10) {
+            int rimT = boost(argb(0xE8, 0xFF, 0xFF, 0xFF), hv); // top: faces the light
+            int rimS = boost(argb(0x90, 0xFF, 0xFF, 0xFF), hv); // sides
+            int rimB = boost(argb(0xA8, 0xFF, 0xFF, 0xFF), hv); // bottom rim light
+            g.fill(x + 5, y, x + w - 5, y + 1, scaled(rimT, alpha));
+            g.fill(x + 2, y + 1, x + 4, y + 2, scaled(rimT, alpha));
+            g.fill(x + w - 4, y + 1, x + w - 2, y + 2, scaled(rimB, alpha));
+            g.fill(x + 1, y + 2, x + 2, y + h - 3, scaled(rimS, alpha));
+            g.fill(x + w - 2, y + 2, x + w - 1, y + h - 3, scaled(rimS, alpha));
+            g.fill(x + 2, y + h - 2, x + 4, y + h - 1, scaled(rimB, alpha));
+            g.fill(x + w - 4, y + h - 2, x + w - 2, y + h - 1, scaled(rimB, alpha));
+            g.fill(x + 5, y + h - 1, x + w - 5, y + h, scaled(rimB, alpha));
+            // top-left corner hotspot (the lens catches a glint there)
+            g.fill(x + 3, y + 2, x + 7, y + 3, scaled(boost(argb(0xFF, 0xFF, 0xFF, 0xFF), hv), alpha));
+            g.fill(x + 2, y + 3, x + 3, y + 6, scaled(boost(argb(0xCC, 0xFF, 0xFF, 0xFF), hv), alpha));
         }
 
-        // Glossy sheen: a soft light band just under the top rim.
-        if (h >= 9 && w >= 10 && !hovered) {
-            g.fill(x + 6, y + 3, x + w - 6, y + 4, scaled(argb(0x3C, 0xFF, 0xFF, 0xFF), alpha));
+        // 5. Glossy sheen band under the top rim.
+        if (h >= 12 && w >= 14) {
+            g.fill(x + 8, y + 3, x + w - 8, y + 4, scaled(boost(argb(0x6E, 0xFF, 0xFF, 0xFF), hv), alpha));
         }
 
         if (!active) {
-            fillRounded(g, x, y, w, h, scaled(argb(0x6E, 0x00, 0x00, 0x00), alpha));
+            fillRounded(g, x, y, w, h, scaled(argb(0x50, 0x10, 0x14, 0x18), alpha));
         }
     }
 
-    /** Liquid glass slider: recessed groove + lens-like glass handle. */
+    /** Liquid glass slider: recessed groove + bright pill glass handle. */
     public static void drawSlider(GuiGraphics g, int x, int y, int w, int h, double value, boolean active, boolean hovered, float alpha) {
+        float hv = hovered ? 1.25f : 1.0f;
         int cy = y + h / 2;
-        // Recessed groove (dark channel + faint inner light)
-        fillRounded(g, x + 2, cy - 3, w - 4, 6, scaled(argb(0x96, 0x04, 0x08, 0x0C), alpha));
+        // Recessed groove: dark channel + faint inner light
+        fillRounded(g, x + 2, cy - 3, w - 4, 6, scaled(argb(0x70, 0x14, 0x18, 0x20), alpha));
         if (w > 8) {
             fillRounded(g, x + 3, cy - 2, w - 6, 4, scaled(argb(0x28, 0xFF, 0xFF, 0xFF), alpha));
         }
-        // Glass handle (8 wide): gradient body + bright top rim
+        // Bright glass handle (8 wide pill)
         int hx = x + (int) (Math.max(0.0, Math.min(1.0, value)) * (w - 8));
-        fillRounded(g, hx, y, 8, h, scaled(argb(0xC0, 0x05, 0x08, 0x0C), alpha));
-        if (h >= 4) {
-            int top = hovered ? argb(0x78, 0xFF, 0xFF, 0xFF) : argb(0x50, 0xFF, 0xFF, 0xFF);
-            g.fillGradient(hx + 1, y + 1, hx + 7, y + h - 1, scaled(top, alpha), scaled(argb(0x24, 0x8A, 0xA8, 0xC8), alpha));
-        }
+        fillRounded(g, hx - 1, y - 1, 10, h + 2, scaled(argb(0x30, 0x00, 0x0A, 0x14), alpha)); // frost halo
+        fillRounded(g, hx, y, 8, h, scaled(boost(argb(0x60, 0xFF, 0xFF, 0xFF), hv), alpha));
         if (h >= 6) {
-            g.fill(hx + 3, y + 1, hx + 5, y + 2, scaled(argb(0xB0, 0xFF, 0xFF, 0xFF), alpha));
+            g.fillGradient(hx + 2, y + 2, hx + 6, y + h / 2,
+                scaled(boost(argb(0x60, 0xFF, 0xFF, 0xFF), hv), alpha),
+                scaled(argb(0x18, 0xFF, 0xFF, 0xFF), alpha));
+            g.fill(hx + 2, y + 1, hx + 6, y + 2, scaled(boost(argb(0xE8, 0xFF, 0xFF, 0xFF), hv), alpha));
+            g.fill(hx + 1, y + 2, hx + 2, y + h - 2, scaled(boost(argb(0x90, 0xFF, 0xFF, 0xFF), hv), alpha));
+            g.fill(hx + 6, y + 2, hx + 7, y + h - 2, scaled(boost(argb(0x90, 0xFF, 0xFF, 0xFF), hv), alpha));
+            g.fill(hx + 2, y + h - 2, hx + 6, y + h - 1, scaled(boost(argb(0xA8, 0xFF, 0xFF, 0xFF), hv), alpha));
         }
         if (!active) {
-            fillRounded(g, x, y, w, h, scaled(argb(0x6E, 0x00, 0x00, 0x00), alpha));
+            fillRounded(g, x, y, w, h, scaled(argb(0x50, 0x10, 0x14, 0x18), alpha));
         }
     }
 
