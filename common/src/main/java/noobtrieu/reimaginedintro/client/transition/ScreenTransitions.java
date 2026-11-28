@@ -103,6 +103,19 @@ public final class ScreenTransitions {
         if (next instanceof IntroScreen) return false; // intro owns its transitions
         if (MinecraftAccessorBridge.getActiveScreen() instanceof IntroScreen) return false;
 
+        // Entering a world: the reversed-intro overlay covers the level
+        // loading screen entirely. Initial entry only (level == null) - the
+        // nether-portal variant of this screen appears in-game and is left
+        // alone. Arm first, then step aside (returns false untouched when the
+        // feature is disabled in the config).
+        if (next instanceof net.minecraft.client.gui.screens.LevelLoadingScreen
+            && Minecraft.getInstance().level == null) {
+            if (EnterWorldTransition.arm()) {
+                if (phase != Phase.IDLE || fluidArmed) abandon(); // drop any half-played menu morph
+                return false;
+            }
+        }
+
         // A new swap arriving mid-transition: resolve it by finishing instantly,
         // then the caller's setScreen proceeds normally (no new animation).
         if (phase != Phase.IDLE || fluidArmed) {

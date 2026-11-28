@@ -31,6 +31,14 @@ public class ModConfig {
      *  (in-game UI is never restyled). */
     public boolean glassButtons = true;
 
+    /**
+     * Reversed-intro transition when entering a world: the startup animation
+     * plays backwards over the world load (menu -> un-morphing cave -> back
+     * into the logo page), and the Mojang logo is replaced by a window
+     * showing the entering game, which then expands fullscreen.
+     */
+    public boolean reverseIntroOnWorldEnter = true;
+
     private static ModConfig INSTANCE;
     private static final Path CONFIG_FILE = Services.PLATFORM.getConfigDir().resolve("reimagined-intro.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
